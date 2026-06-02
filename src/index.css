@@ -1,0 +1,80 @@
+/* ============ DESIGN TOKENS ============ */
+:root {
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --r-sm: 5px;  --r-md: 8px;  --r-lg: 12px;  --r-xl: 16px;
+
+  /* semantic — same in both themes */
+  --up: oklch(0.72 0.16 155);
+  --up-bg: oklch(0.72 0.16 155 / 0.13);
+  --down: oklch(0.66 0.20 25);
+  --down-bg: oklch(0.66 0.20 25 / 0.13);
+  --accent: oklch(0.62 0.18 256);
+  --accent-strong: oklch(0.55 0.20 256);
+  --accent-bg: oklch(0.62 0.18 256 / 0.13);
+  --amber: oklch(0.78 0.14 75);
+}
+
+/* ---------- DARK (default) ---------- */
+html[data-theme="dark"] {
+  --bg: oklch(0.17 0.012 256);
+  --bg-2: oklch(0.20 0.013 256);
+  --surface: oklch(0.22 0.014 256);
+  --surface-2: oklch(0.25 0.015 256);
+  --surface-hover: oklch(0.27 0.016 256);
+  --border: oklch(0.30 0.015 256);
+  --border-strong: oklch(0.38 0.016 256);
+  --text: oklch(0.96 0.005 256);
+  --text-2: oklch(0.74 0.012 256);
+  --text-3: oklch(0.58 0.012 256);
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
+  --grid-line: oklch(0.30 0.015 256 / 0.6);
+}
+/* ---------- LIGHT ---------- */
+html[data-theme="light"] {
+  --bg: oklch(0.985 0.003 256);
+  --bg-2: oklch(0.965 0.004 256);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.975 0.004 256);
+  --surface-hover: oklch(0.955 0.005 256);
+  --border: oklch(0.91 0.005 256);
+  --border-strong: oklch(0.84 0.006 256);
+  --text: oklch(0.24 0.01 256);
+  --text-2: oklch(0.46 0.012 256);
+  --text-3: oklch(0.62 0.012 256);
+  --shadow: 0 1px 2px rgba(20,30,55,.06), 0 8px 24px rgba(20,30,55,.07);
+  --grid-line: oklch(0.91 0.005 256 / 0.9);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow: hidden;
+}
+#root { height: 100vh; }
+
+.mono { font-family: var(--font-mono); font-feature-settings: "tnum" 1; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* scrollbars */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 8px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-track { background: transparent; }
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input { font-family: inherit; }
+
+::selection { background: var(--accent-bg); }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.fade-up { animation: fadeUp .28s cubic-bezier(.2,.7,.3,1) both; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--up); animation: pulse 2s ease-in-out infinite; }
