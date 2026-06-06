@@ -1,6 +1,6 @@
 /* ============================================================
    shared.jsx — presentational primitives reused across screens
-   (table cells, score widgets, page header)
+   (table cells, score widgets, page header, async states)
    ============================================================ */
 import { scoreColor } from "./ui.jsx";
 
@@ -30,6 +30,7 @@ function Td({ children, align = "right", style }) {
 
 /* ---------- compact score chip ---------- */
 function ScorePip({ score }) {
+  if (score == null) return <span className="mono tnum" style={{ color: "var(--text-3)" }}>—</span>;
   return (
     <span className="mono tnum" style={{
       display: "inline-grid", placeItems: "center", width: 30, height: 22, borderRadius: 5,
@@ -41,6 +42,7 @@ function ScorePip({ score }) {
 
 /* ---------- composite score mini-bar ---------- */
 function CompositeMini({ score }) {
+  if (score == null) return <span className="mono tnum" style={{ color: "var(--text-3)" }}>—</span>;
   const c = scoreColor(score);
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
@@ -65,4 +67,19 @@ function PageHead({ title, sub, right }) {
   );
 }
 
-export { Th, Td, ScorePip, CompositeMini, PageHead };
+/* ---------- async states (loading / error / empty) ---------- */
+function Loading({ label = "Cargando…" }) {
+  return <div style={{ padding: 40, textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>{label}</div>;
+}
+function ErrorBox({ error, label = "No se pudieron cargar los datos" }) {
+  return (
+    <div style={{ padding: 40, textAlign: "center", color: "var(--down)", fontSize: 13 }}>
+      {label}{error?.message ? ` — ${error.message}` : ""}
+    </div>
+  );
+}
+function Empty({ label = "Sin resultados" }) {
+  return <div style={{ padding: 40, textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>{label}</div>;
+}
+
+export { Th, Td, ScorePip, CompositeMini, PageHead, Loading, ErrorBox, Empty };

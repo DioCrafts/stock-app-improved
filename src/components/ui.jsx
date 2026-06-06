@@ -192,6 +192,13 @@ function AreaChart({ data, h = 260, color, baseline }) {
 
 /* ---------------- ScoreRing (composite) ---------------- */
 function ScoreRing({ score, size = 76, stroke = 7, showLabel = true }) {
+  if (score == null) return (
+    <div className="mono" style={{
+      width: size, height: size, flex: "none", display: "grid", placeItems: "center",
+      borderRadius: "50%", border: `${stroke}px solid var(--border)`,
+      color: "var(--text-3)", fontSize: size * 0.3, fontWeight: 600,
+    }}>—</div>
+  );
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const c = scoreColor(score);
@@ -219,7 +226,7 @@ function ScoreRing({ score, size = 76, stroke = 7, showLabel = true }) {
 
 /* ---------------- ScoreBar (sub-score) ---------------- */
 function ScoreBar({ label, score, sub }) {
-  const c = scoreColor(score);
+  const c = score == null ? "var(--border)" : scoreColor(score);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
       <div style={{ width: 64, flex: "none" }}>
@@ -227,9 +234,9 @@ function ScoreBar({ label, score, sub }) {
         {sub && <div style={{ fontSize: 10, color: "var(--text-3)" }}>{sub}</div>}
       </div>
       <div style={{ flex: 1, height: 6, borderRadius: 4, background: "var(--border)", overflow: "hidden" }}>
-        <div style={{ width: score + "%", height: "100%", background: c, borderRadius: 4, transition: "width .5s ease" }} />
+        <div style={{ width: (score ?? 0) + "%", height: "100%", background: c, borderRadius: 4, transition: "width .5s ease" }} />
       </div>
-      <div className="mono tnum" style={{ width: 24, textAlign: "right", fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{score}</div>
+      <div className="mono tnum" style={{ width: 24, textAlign: "right", fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{score ?? "—"}</div>
     </div>
   );
 }

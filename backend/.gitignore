@@ -1,0 +1,13 @@
+# Python / uv
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Datos locales (caché en disco y SQLite)
+data/
+.cache/
+
+# Entorno
+.env

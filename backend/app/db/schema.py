@@ -1,0 +1,82 @@
+"""Esquema SQLite y conexión.
+
+SQLite (un fichero, sin servidor) por KISS; justificado por el tamaño del universo
+US+CA+UK (~16k símbolos). stdlib `sqlite3`, sin ORM.
+
+- `universe`: catálogo de tickers (Fase 2).
+- `company_snapshot`: fundamentales pre-calculados de todo el universo (Fase 4).
+  Columnas indexables = los campos por los que filtra/ordena el screener; `data` = JSON
+  del `Company` completo (para la ficha/lista/compare sin llamar a yfinance en caliente).
+"""
+from __future__ import annotations
+
+import os
+import sqlite3
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS universe (
+    symbol      TEXT PRIMARY KEY,   -- símbolo yfinance (AAPL, SHOP.TO, HSBA.L)
+    name        TEXT,
+    exchange    TEXT,               -- código FinanceDatabase (NYQ, TOR, LSE...)
+    market      TEXT,               -- US | CA | UK
+    currency    TEXT,
+    sector      TEXT,
+    country     TEXT,
+    market_cap  TEXT,               -- bucket categórico de FinanceDatabase
+    updated_at  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_universe_market ON universe(market);
+CREATE INDEX IF NOT EXISTS idx_universe_name   ON universe(name);
+
+CREATE TABLE IF NOT EXISTS company_snapshot (
+    symbol          TEXT PRIMARY KEY,
+    name            TEXT,
+    market          TEXT,
+    sector          TEXT,
+    -- columnas para filtrar/ordenar el screener (espejo de FILTER_DEFS)
+    price           REAL,
+    change          REAL,
+    market_cap      REAL,
+    pe              REAL,
+    peg             REAL,
+    pb              REAL,
+    div_yield       REAL,
+    roe             REAL,
+    rev_growth      REAL,
+    score_value     INTEGER,
+    score_growth    INTEGER,
+    score_health    INTEGER,
+    score_momentum  INTEGER,
+    score_composite INTEGER,
+    -- inputs crudos de momentum (capturados en la ingesta, usados por el scoring)
+    ret_1y          REAL,           -- 52WeekChange (retorno 1 año, fracción)
+    px_vs_200d      REAL,           -- precio / media 200d - 1
+    -- Company completo (JSON) + estado de ingesta
+    data            TEXT,
+    status          TEXT,           -- 'ok' | 'error'
+    error           TEXT,
+    updated_at      TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_snap_market     ON company_snapshot(market);
+CREATE INDEX IF NOT EXISTS idx_snap_composite  ON company_snapshot(score_composite);
+CREATE INDEX IF NOT EXISTS idx_snap_pe         ON company_snapshot(pe);
+CREATE INDEX IF NOT EXISTS idx_snap_marketcap  ON company_snapshot(market_cap);
+"""
+
+
+def connect(db_path: str) -> sqlite3.Connection:
+    """Abre una conexión, creando el directorio padre si hace falta.
+    Activa WAL para que la API (lecturas) y el job batch (escrituras) no se bloqueen."""
+    if db_path != ":memory:":
+        os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
+    conn = sqlite3.connect(db_path, timeout=30)
+    conn.row_factory = sqlite3.Row
+    if db_path != ":memory:":
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+    return conn
+
+
+def init_db(conn: sqlite3.Connection) -> None:
+    conn.executescript(SCHEMA)
+    conn.commit()

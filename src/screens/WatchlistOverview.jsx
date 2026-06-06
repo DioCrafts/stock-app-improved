@@ -2,106 +2,113 @@
    screens-watchlist-overview.jsx — Watchlist + Company ficha
    ============================================================ */
 import { useState } from "react";
-import { DATA } from "../data.js";
+import { api, useAsync } from "../api.js";
 import {
   fmt, scoreColor, scoreLabel, Icon, Mono, Delta, Sparkline, AreaChart,
   ScoreRing, ScoreBar, Pill, Card, Stat,
 } from "../components/ui.jsx";
-import { Th, Td, ScorePip, CompositeMini, PageHead } from "../components/shared.jsx";
+import { Th, Td, ScorePip, CompositeMini, PageHead, Loading, ErrorBox, Empty } from "../components/shared.jsx";
 
 /* =================== WATCHLIST =================== */
 function Watchlist({ go, watch, toggleWatch }) {
   const [sort, setSort] = useState({ k: "composite", dir: "desc" });
-  const rows = DATA.companies.filter((c) => watch.includes(c.ticker));
+  const { loading, error, data } = useAsync(
+    () => (watch.length ? api.companies(watch) : Promise.resolve([])), [watch.join(",")]);
+  const rows = data || [];
 
   const sorted = [...rows].sort((a, b) => {
     const get = (c) => ({
-      ticker: c.ticker, price: c.price, change: c.change, cap: c.marketCap,
-      pe: c.pe ?? 1e9, peg: c.peg ?? 1e9, div: c.divYield,
-      value: c.scores.value, growth: c.scores.growth, composite: c.scores.composite,
+      ticker: c.ticker, price: c.price, change: c.change, cap: c.marketCap ?? -1,
+      pe: c.pe ?? 1e9, peg: c.peg ?? 1e9, div: c.divYield ?? -1,
+      value: c.scores?.value ?? -1, growth: c.scores?.growth ?? -1, composite: c.scores?.composite ?? -1,
     }[sort.k]);
     const av = get(a), bv = get(b);
     if (typeof av === "string") return sort.dir === "desc" ? bv.localeCompare(av) : av.localeCompare(bv);
     return sort.dir === "desc" ? bv - av : av - bv;
   });
 
-  const avgScore = Math.round(rows.reduce((s, c) => s + c.scores.composite, 0) / (rows.length || 1));
-  const best = [...rows].sort((a, b) => b.change - a.change)[0];
-  const worst = [...rows].sort((a, b) => a.change - b.change)[0];
+  const withComp = rows.filter((c) => c.scores?.composite != null);
+  const avgScore = withComp.length ? Math.round(withComp.reduce((s, c) => s + c.scores.composite, 0) / withComp.length) : null;
+  const best = rows.length ? [...rows].sort((a, b) => (b.change ?? -1e9) - (a.change ?? -1e9))[0] : null;
+  const worst = rows.length ? [...rows].sort((a, b) => (a.change ?? 1e9) - (b.change ?? 1e9))[0] : null;
   const gainers = rows.filter((c) => c.change > 0).length;
 
   return (
     <div className="fade-up" style={{ padding: 24, height: "100%", overflowY: "auto" }}>
-      <PageHead title="Watchlist" sub={`${rows.length} companies tracked · NYSE / NASDAQ`} />
+      <PageHead title="Watchlist" sub={`${rows.length} companies tracked · NYSE / NASDAQ / TSX / LSE`} />
 
-      {/* summary strip */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 18 }}>
-        <SummaryTile label="Avg composite score" value={avgScore} ring />
-        <SummaryTile label="Advancing today" value={`${gainers}/${rows.length}`} sub={`${rows.length - gainers} declining`} />
-        <SummaryTile label="Top mover" value={best ? best.ticker : "—"} delta={best ? best.change : null} onClick={best ? () => go("company", best.ticker) : null} />
-        <SummaryTile label="Laggard" value={worst ? worst.ticker : "—"} delta={worst ? worst.change : null} onClick={worst ? () => go("company", worst.ticker) : null} />
-      </div>
+      {loading ? <Loading /> : error ? <ErrorBox error={error} /> : rows.length === 0 ? (
+        <Empty label="Tu watchlist está vacía. Añade empresas desde el Screener o la búsqueda." />
+      ) : (
+        <>
+          {/* summary strip */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 18 }}>
+            <SummaryTile label="Avg composite score" value={avgScore} ring />
+            <SummaryTile label="Advancing today" value={`${gainers}/${rows.length}`} sub={`${rows.length - gainers} declining`} />
+            <SummaryTile label="Top mover" value={best ? best.ticker : "—"} delta={best ? best.change : null} onClick={best ? () => go("company", best.ticker) : null} />
+            <SummaryTile label="Laggard" value={worst ? worst.ticker : "—"} delta={worst ? worst.change : null} onClick={worst ? () => go("company", worst.ticker) : null} />
+          </div>
 
-      <Card pad={0}>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr>
-                <Th k="ticker" sort={sort} setSort={setSort} align="left">Company</Th>
-                <Th k="price" sort={sort} setSort={setSort}>Price</Th>
-                <Th k="change" sort={sort} setSort={setSort}>Chg</Th>
-                <Th align="center">30d</Th>
-                <Th k="cap" sort={sort} setSort={setSort}>Mkt Cap</Th>
-                <Th k="pe" sort={sort} setSort={setSort}>P/E</Th>
-                <Th k="peg" sort={sort} setSort={setSort}>PEG</Th>
-                <Th k="div" sort={sort} setSort={setSort}>Div</Th>
-                <Th k="value" sort={sort} setSort={setSort}>Value</Th>
-                <Th k="growth" sort={sort} setSort={setSort}>Growth</Th>
-                <Th k="composite" sort={sort} setSort={setSort}>Score</Th>
-                <Th w={36}></Th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((c) => (
-                <tr key={c.ticker} className="row"
-                  onClick={() => go("company", c.ticker)}
-                  style={{ height: 46, borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
-                  <Td align="left">
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <Mono ticker={c.ticker} size={30} />
-                      <div style={{ minWidth: 0 }}>
-                        <div className="mono" style={{ fontWeight: 600, fontSize: 13 }}>{c.ticker}</div>
-                        <div style={{ fontSize: 11, color: "var(--text-3)", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 150 }}>{c.name}</div>
-                      </div>
-                    </div>
-                  </Td>
-                  <Td><span className="mono tnum">{fmt.price(c.price)}</span></Td>
-                  <Td><Delta value={c.change} pct /></Td>
-                  <Td align="center"><div style={{ display: "inline-block" }}><Sparkline data={c.hist.slice(-30)} w={72} h={24} /></div></Td>
-                  <Td><span className="mono tnum" style={{ color: "var(--text-2)" }}>{fmt.cap(c.marketCap)}</span></Td>
-                  <Td><span className="mono tnum">{fmt.num(c.pe, 1)}</span></Td>
-                  <Td><span className="mono tnum" style={{ color: c.peg && c.peg < 1.5 ? "var(--up)" : "var(--text-2)" }}>{c.peg ? fmt.num(c.peg, 1) : "—"}</span></Td>
-                  <Td><span className="mono tnum" style={{ color: "var(--text-2)" }}>{c.divYield ? fmt.pctPlain(c.divYield) : "—"}</span></Td>
-                  <Td align="center"><ScorePip score={c.scores.value} /></Td>
-                  <Td align="center"><ScorePip score={c.scores.growth} /></Td>
-                  <Td><div style={{ display: "flex", justifyContent: "flex-end" }}><CompositeMini score={c.scores.composite} /></div></Td>
-                  <Td>
-                    <button title="Remove" onClick={(e) => { e.stopPropagation(); toggleWatch(c.ticker); }}
-                      style={{ color: "var(--text-3)", display: "grid", placeItems: "center", width: 24, height: 24, borderRadius: 5 }}
-                      onMouseEnter={(e) => e.currentTarget.style.color = "var(--down)"}
-                      onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-3)"}>
-                      <Icon name="x" size={13} />
-                    </button>
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-      <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 12 }}>
-        Click any row to open the company. Scores are illustrative composites — Value 35% · Growth 30% · Health 20% · Momentum 15%.
-      </p>
+          <Card pad={0}>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <Th k="ticker" sort={sort} setSort={setSort} align="left">Company</Th>
+                    <Th k="price" sort={sort} setSort={setSort}>Price</Th>
+                    <Th k="change" sort={sort} setSort={setSort}>Chg</Th>
+                    <Th k="cap" sort={sort} setSort={setSort}>Mkt Cap</Th>
+                    <Th k="pe" sort={sort} setSort={setSort}>P/E</Th>
+                    <Th k="peg" sort={sort} setSort={setSort}>PEG</Th>
+                    <Th k="div" sort={sort} setSort={setSort}>Div</Th>
+                    <Th k="value" sort={sort} setSort={setSort}>Value</Th>
+                    <Th k="growth" sort={sort} setSort={setSort}>Growth</Th>
+                    <Th k="composite" sort={sort} setSort={setSort}>Score</Th>
+                    <Th w={36}></Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.map((c) => (
+                    <tr key={c.ticker} className="row"
+                      onClick={() => go("company", c.ticker)}
+                      style={{ height: 46, borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
+                      <Td align="left">
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <Mono ticker={c.ticker} size={30} />
+                          <div style={{ minWidth: 0 }}>
+                            <div className="mono" style={{ fontWeight: 600, fontSize: 13 }}>{c.ticker}</div>
+                            <div style={{ fontSize: 11, color: "var(--text-3)", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 150 }}>{c.name}</div>
+                          </div>
+                        </div>
+                      </Td>
+                      <Td><span className="mono tnum">{fmt.price(c.price)}</span></Td>
+                      <Td><Delta value={c.change} pct /></Td>
+                      <Td><span className="mono tnum" style={{ color: "var(--text-2)" }}>{fmt.cap(c.marketCap)}</span></Td>
+                      <Td><span className="mono tnum">{fmt.num(c.pe, 1)}</span></Td>
+                      <Td><span className="mono tnum" style={{ color: c.peg && c.peg < 1.5 ? "var(--up)" : "var(--text-2)" }}>{c.peg ? fmt.num(c.peg, 1) : "—"}</span></Td>
+                      <Td><span className="mono tnum" style={{ color: "var(--text-2)" }}>{c.divYield ? fmt.pctPlain(c.divYield) : "—"}</span></Td>
+                      <Td align="center"><ScorePip score={c.scores?.value} /></Td>
+                      <Td align="center"><ScorePip score={c.scores?.growth} /></Td>
+                      <Td><div style={{ display: "flex", justifyContent: "flex-end" }}><CompositeMini score={c.scores?.composite} /></div></Td>
+                      <Td>
+                        <button title="Remove" onClick={(e) => { e.stopPropagation(); toggleWatch(c.ticker); }}
+                          style={{ color: "var(--text-3)", display: "grid", placeItems: "center", width: 24, height: 24, borderRadius: 5 }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = "var(--down)"}
+                          onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-3)"}>
+                          <Icon name="x" size={13} />
+                        </button>
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+          <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 12 }}>
+            Click any row to open the company. Scores: Value 35% · Growth 30% · Health 20% · Momentum 15% (percentiles por mercado).
+          </p>
+        </>
+      )}
       <style>{`.row:hover{background:var(--surface-hover)}`}</style>
     </div>
   );
@@ -116,23 +123,31 @@ function SummaryTile({ label, value, sub, delta, ring, onClick }) {
     }}>
       <div>
         <div style={{ fontSize: 10.5, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>{label}</div>
-        <div className="mono tnum" style={{ fontSize: 22, fontWeight: 600 }}>{value}</div>
+        <div className="mono tnum" style={{ fontSize: 22, fontWeight: 600 }}>{value ?? "—"}</div>
         {sub && <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>{sub}</div>}
         {delta != null && <div style={{ marginTop: 2 }}><Delta value={delta} pct /></div>}
       </div>
-      {ring && <ScoreRing score={value} size={52} stroke={5} showLabel={false} />}
+      {ring && <ScoreRing score={typeof value === "number" ? value : null} size={52} stroke={5} showLabel={false} />}
     </div>
   );
 }
 
 /* =================== COMPANY OVERVIEW =================== */
+const RANGE_DAYS = { "1M": 22, "3M": 63, "6M": 126, "1Y": 252 };
+
 function CompanyOverview({ ticker, go, watch, toggleWatch }) {
-  const c = DATA.byTicker[ticker];
   const [range, setRange] = useState("3M");
-  if (!c) return <div style={{ padding: 24 }}>Not found.</div>;
+  const { loading, error, data: c } = useAsync(() => api.company(ticker), [ticker]);
+  const pricesState = useAsync(() => api.prices(ticker, "1Y"), [ticker]);
+
+  if (loading) return <div className="fade-up" style={{ padding: 24 }}><Loading /></div>;
+  if (error || !c) return <div className="fade-up" style={{ padding: 24 }}><ErrorBox error={error} label="Empresa no encontrada" /></div>;
+
   const watched = watch.includes(c.ticker);
-  const ranges = { "1M": 22, "3M": 60, "6M": 60, "1Y": 60 };
-  const series = c.hist.slice(-ranges[range]);
+  const closes = (pricesState.data?.points || []).map((p) => p.close);
+  const series = closes.slice(-RANGE_DAYS[range]);
+  const lo = closes.length ? Math.min(...closes) : null;
+  const hi = closes.length ? Math.max(...closes) : null;
 
   const statGroups = [
     { title: "Valuation", items: [
@@ -149,7 +164,7 @@ function CompanyOverview({ ticker, go, watch, toggleWatch }) {
     { title: "Growth & risk", items: [
       ["Revenue growth", fmt.pct(c.revGrowth, 1)], ["EPS growth", fmt.pct(c.epsGrowth, 1)],
       ["Debt / equity", fmt.num(c.debtEq, 2)], ["Current ratio", c.currentRatio ? fmt.num(c.currentRatio, 2) : "—"],
-      ["Beta", fmt.num(c.beta, 2)], ["Employees", (c.employees / 1000).toFixed(0) + "k"],
+      ["Beta", fmt.num(c.beta, 2)], ["Employees", c.employees ? (c.employees / 1000).toFixed(0) + "k" : "—"],
     ]},
   ];
 
@@ -188,7 +203,7 @@ function CompanyOverview({ ticker, go, watch, toggleWatch }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <Card title="Price" pad={16}
             action={<div style={{ display: "flex", gap: 4 }}>
-              {Object.keys(ranges).map((r) => (
+              {Object.keys(RANGE_DAYS).map((r) => (
                 <button key={r} onClick={() => setRange(r)} className="mono"
                   style={{
                     fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 5,
@@ -197,7 +212,7 @@ function CompanyOverview({ ticker, go, watch, toggleWatch }) {
                   }}>{r}</button>
               ))}
             </div>}>
-            <AreaChart data={series} h={250} baseline={series[0]} />
+            {pricesState.loading ? <Loading /> : series.length < 2 ? <Empty label="Sin datos de precio" /> : <AreaChart data={series} h={250} baseline={series[0]} />}
           </Card>
 
           {statGroups.map((g) => (
@@ -217,7 +232,7 @@ function CompanyOverview({ ticker, go, watch, toggleWatch }) {
           ))}
 
           <Card title="About" pad={16}>
-            <p style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.6, textWrap: "pretty" }}>{c.desc}</p>
+            <p style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.6, textWrap: "pretty" }}>{c.desc || "—"}</p>
           </Card>
         </div>
 
@@ -225,26 +240,28 @@ function CompanyOverview({ ticker, go, watch, toggleWatch }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 16, position: "sticky", top: 0 }}>
           <Card title="Composite score" pad={16}>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 18 }}>
-              <ScoreRing score={c.scores.composite} size={84} stroke={8} />
+              <ScoreRing score={c.scores?.composite} size={84} stroke={8} />
               <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.5 }}>
-                <strong style={{ color: scoreColor(c.scores.composite) }}>{scoreLabel(c.scores.composite)}</strong> overall.
+                {c.scores?.composite != null ? (
+                  <><strong style={{ color: scoreColor(c.scores.composite) }}>{scoreLabel(c.scores.composite)}</strong> overall. </>
+                ) : null}
                 Weighted blend of value, growth, balance-sheet health and price momentum.
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <ScoreBar label="Value" sub="ratios, DCF" score={c.scores.value} />
-              <ScoreBar label="Growth" sub="rev, EPS" score={c.scores.growth} />
-              <ScoreBar label="Health" sub="balance" score={c.scores.health} />
-              <ScoreBar label="Momentum" sub="price" score={c.scores.momentum} />
+              <ScoreBar label="Value" sub="ratios" score={c.scores?.value} />
+              <ScoreBar label="Growth" sub="rev, EPS" score={c.scores?.growth} />
+              <ScoreBar label="Health" sub="balance" score={c.scores?.health} />
+              <ScoreBar label="Momentum" sub="price" score={c.scores?.momentum} />
             </div>
           </Card>
 
-          <Card title="Revenue — 6Y ($B)" pad={16}>
-            <RevenueBars data={c.revenue} years={DATA.YEARS} />
+          <Card title="Revenue ($B)" pad={16}>
+            {c.revenue && c.revenue.length ? <RevenueBars data={c.revenue} years={c.revenueYears} /> : <Empty label="Sin datos" />}
           </Card>
 
           <Card title="Snapshot" pad={0}>
-            <KV k="52-wk range" v={`${fmt.price(Math.min(...c.hist))} – ${fmt.price(Math.max(...c.hist))}`} />
+            <KV k="52-wk range" v={`${fmt.price(lo)} – ${fmt.price(hi)}`} />
             <KV k="Prev close" v={fmt.price(c.prevClose)} />
             <KV k="Market cap" v={fmt.cap(c.marketCap)} />
             <KV k="Dividend yield" v={c.divYield ? fmt.pctPlain(c.divYield) : "None"} last />
@@ -288,10 +305,10 @@ function RevenueBars({ data, years }) {
           <div style={{
             width: "100%", maxWidth: 30, height: (v / max) * 90 + "px", borderRadius: "4px 4px 0 0",
             background: i === data.length - 1 ? "var(--accent)" : "var(--accent-bg)",
-            border: "1px solid " + (i === data.length - 1 ? "var(--accent)" : "var(--accent)"),
+            border: "1px solid var(--accent)",
             borderBottom: "none", transition: "height .4s ease",
           }} />
-          <span className="mono" style={{ fontSize: 10, color: "var(--text-3)" }}>'{String(years[i]).slice(2)}</span>
+          <span className="mono" style={{ fontSize: 10, color: "var(--text-3)" }}>{years && years[i] != null ? "'" + String(years[i]).slice(2) : ""}</span>
         </div>
       ))}
     </div>

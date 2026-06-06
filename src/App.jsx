@@ -2,7 +2,7 @@
    app.jsx — shell: sidebar nav, global search, theme, routing
    ============================================================ */
 import { useState, useEffect, useRef } from "react";
-import { DATA } from "./data.js";
+import { api, useAsync } from "./api.js";
 import { Icon, Mono, Delta, fmt } from "./components/ui.jsx";
 import { Watchlist, CompanyOverview } from "./screens/WatchlistOverview.jsx";
 import { CompositeMini } from "./components/shared.jsx";
@@ -17,6 +17,9 @@ function useLocalState(key, init) {
   return [v, setV];
 }
 
+// Watchlist inicial (semilla de localStorage); el estado de usuario vive en el navegador.
+const DEFAULT_WATCH = ["NVDA", "AAPL", "MSFT", "GOOGL", "META", "AMZN", "JPM", "V"];
+
 const NAV = [
   { id: "watchlist", icon: "watchlist", label: "Watchlist" },
   { id: "screener", icon: "screener", label: "Screener" },
@@ -29,13 +32,18 @@ function GlobalSearch({ go }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [hi, setHi] = useState(0);
+  const [results, setResults] = useState([]);
   const ref = useRef(null);
-  const results = q
-    ? DATA.companies.filter((c) =>
-        c.ticker.toLowerCase().includes(q.toLowerCase()) ||
-        c.name.toLowerCase().includes(q.toLowerCase())
-      ).slice(0, 7)
-    : [];
+
+  // búsqueda server-side con debounce
+  useEffect(() => {
+    if (!q.trim()) { setResults([]); return; }
+    const id = setTimeout(() => {
+      api.search(q.trim()).then((r) => setResults(r)).catch(() => setResults([]));
+    }, 200);
+    return () => clearTimeout(id);
+  }, [q]);
+
   useEffect(() => {
     const h = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); ref.current?.focus(); }
@@ -76,7 +84,7 @@ function GlobalSearch({ go }) {
                 <span style={{ fontSize: 12, color: "var(--text-3)", marginLeft: 8 }}>{c.name}</span>
               </div>
               <span className="mono tnum" style={{ fontSize: 12 }}>{fmt.price(c.price)}</span>
-              <div style={{ width: 44 }}><CompositeMini score={c.scores.composite} /></div>
+              <div style={{ width: 44 }}>{c.composite != null && <CompositeMini score={c.composite} />}</div>
             </div>
           ))}
         </div>
@@ -88,8 +96,15 @@ function GlobalSearch({ go }) {
 function App() {
   const [route, setRoute] = useLocalState("term.route", { screen: "watchlist", ticker: "NVDA" });
   const [theme, setTheme] = useLocalState("term.theme", "dark");
-  const [watch, setWatch] = useLocalState("term.watch", DATA.watchlist);
+  const [watch, setWatch] = useLocalState("term.watch", DEFAULT_WATCH);
   const [compareSet, setCompareSet] = useLocalState("term.compare", ["NVDA", "MSFT", "GOOGL", "META"]);
+
+  // datos del shell (índices, estado de mercado, watchlist del sidebar)
+  const { data: indices } = useAsync(() => api.indices(), []);
+  const { data: marketStatus } = useAsync(() => api.marketStatus(), []);
+  const { data: watchCos } = useAsync(() => (watch.length ? api.companies(watch) : Promise.resolve([])), [watch.join(",")]);
+  const watchByTicker = {};
+  (watchCos || []).forEach((c) => { watchByTicker[c.ticker] = c; });
 
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
 
@@ -155,14 +170,14 @@ function App() {
           <div style={{ fontSize: 10, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Watchlist</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
             {watch.slice(0, 6).map((t) => {
-              const c = DATA.byTicker[t];
+              const c = watchByTicker[t];
               return (
                 <button key={t} onClick={() => go("company", t)}
                   style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 6px", borderRadius: 6, fontSize: 12 }}
                   onMouseEnter={(e) => e.currentTarget.style.background = "var(--surface-2)"}
                   onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                   <span className="mono" style={{ fontWeight: 600 }}>{t}</span>
-                  <Delta value={c.change} pct arrow={false} size={11} />
+                  <Delta value={c ? c.change : null} pct arrow={false} size={11} />
                 </button>
               );
             })}
@@ -172,7 +187,7 @@ function App() {
         <div style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 4px" }}>
           <ThemeToggle theme={theme} setTheme={setTheme} />
           <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text-3)" }}>
-            <span className="live-dot"></span> Market open
+            <span className="live-dot"></span> {marketStatus?.open ? "Market open" : "Market closed"}
           </div>
         </div>
       </aside>
@@ -183,9 +198,11 @@ function App() {
           display: "flex", alignItems: "center", gap: 16, padding: "0 24px" }}>
           <GlobalSearch go={go} />
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 18 }}>
-            <IndexChip label="S&P 500" value="5,981.4" chg={0.42} />
-            <IndexChip label="NASDAQ" value="19,403.9" chg={0.71} />
-            <IndexChip label="VIX" value="13.2" chg={-2.1} invert />
+            {(indices || []).map((ix) => (
+              <IndexChip key={ix.symbol} label={ix.label}
+                value={ix.value.toLocaleString("en-US", { maximumFractionDigits: 1, minimumFractionDigits: 1 })}
+                chg={ix.change} invert={ix.symbol === "^VIX"} />
+            ))}
           </div>
         </header>
         <main style={{ flex: 1, overflow: "hidden", minHeight: 0 }}>{screenEl}</main>
