@@ -5,6 +5,7 @@ Fase 4/6 cuando exista `company_snapshot`.
 """
 from __future__ import annotations
 
+import re
 import sqlite3
 
 _UNIVERSE_COLS = ("symbol", "name", "exchange", "market", "currency", "sector", "country", "market_cap")
@@ -137,15 +138,42 @@ def snapshots_by_symbols(conn: sqlite3.Connection, symbols: list[str]) -> dict[s
     return {r["symbol"]: r["data"] for r in rows}
 
 
+def rebuild_universe_fts(conn: sqlite3.Connection) -> None:
+    """Reconstruye el índice FTS5 de búsqueda a partir de `universe` (L7)."""
+    conn.execute("DELETE FROM universe_fts")
+    conn.execute("INSERT INTO universe_fts(symbol, name) SELECT symbol, name FROM universe")
+    conn.commit()
+
+
 def search_universe(conn: sqlite3.Connection, q: str, limit: int = 10) -> list[dict]:
-    """Busca por ticker o nombre en el universo; añade price/composite del snapshot si existe."""
-    like = f"%{q}%"
+    """Busca por ticker/nombre con FTS5 (prefijo por token, O(log n)); LIKE como respaldo.
+    Los tokens se sanean a alfanuméricos → sin comodines ni operadores FTS del usuario (L3)."""
+    tokens = re.findall(r"[A-Za-z0-9]+", q)
+    if not tokens:
+        return []
+    exact = q.strip().upper()
+    try:
+        match = " ".join(f"{t}*" for t in tokens)
+        rows = conn.execute(
+            "SELECT f.symbol, u.name, s.price, s.score_composite "
+            "FROM universe_fts f "
+            "JOIN universe u ON u.symbol = f.symbol "
+            "LEFT JOIN company_snapshot s ON s.symbol = f.symbol "
+            "WHERE universe_fts MATCH ? "
+            "ORDER BY (u.symbol = ?) DESC, rank LIMIT ?",
+            (match, exact, limit),
+        ).fetchall()
+        if rows:
+            return [dict(r) for r in rows]
+    except sqlite3.OperationalError:
+        pass  # FTS no disponible/poblado → respaldo LIKE
+    like = f"%{tokens[0]}%"
     rows = conn.execute(
         "SELECT u.symbol, u.name, s.price, s.score_composite "
         "FROM universe u LEFT JOIN company_snapshot s ON u.symbol = s.symbol "
         "WHERE u.symbol LIKE ? OR u.name LIKE ? "
         "ORDER BY (u.symbol = ?) DESC, length(u.symbol) LIMIT ?",
-        (like, like, q.upper(), limit),
+        (like, like, exact, limit),
     ).fetchall()
     return [dict(r) for r in rows]
 

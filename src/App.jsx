@@ -110,7 +110,7 @@ function App() {
 
   const go = (screen, ticker) => {
     if (screen === "compare" && ticker) {
-      setCompareSet((s) => s.includes(ticker) ? s : [...s, ticker].slice(0, 5));
+      setCompareSet((s) => s.includes(ticker) ? s : [...s, ticker].slice(-5));
     }
     setRoute({ screen, ticker: ticker || route.ticker });
   };

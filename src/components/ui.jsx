@@ -199,6 +199,7 @@ function ScoreRing({ score, size = 76, stroke = 7, showLabel = true }) {
       color: "var(--text-3)", fontSize: size * 0.3, fontWeight: 600,
     }}>—</div>
   );
+  const s = Math.max(0, Math.min(100, score)); // clamp (L22): un score fuera de rango no desborda el arco
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const c = scoreColor(score);
@@ -208,7 +209,7 @@ function ScoreRing({ score, size = 76, stroke = 7, showLabel = true }) {
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border)" strokeWidth={stroke} />
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={c} strokeWidth={stroke}
           strokeLinecap="round" strokeDasharray={circ}
-          strokeDashoffset={circ * (1 - score / 100)}
+          strokeDashoffset={circ * (1 - s / 100)}
           style={{ transition: "stroke-dashoffset .6s cubic-bezier(.2,.7,.3,1)" }} />
       </svg>
       <div style={{
@@ -234,7 +235,7 @@ function ScoreBar({ label, score, sub }) {
         {sub && <div style={{ fontSize: 10, color: "var(--text-3)" }}>{sub}</div>}
       </div>
       <div style={{ flex: 1, height: 6, borderRadius: 4, background: "var(--border)", overflow: "hidden" }}>
-        <div style={{ width: (score ?? 0) + "%", height: "100%", background: c, borderRadius: 4, transition: "width .5s ease" }} />
+        <div style={{ width: Math.max(0, Math.min(100, score ?? 0)) + "%", height: "100%", background: c, borderRadius: 4, transition: "width .5s ease" }} />
       </div>
       <div className="mono tnum" style={{ width: 24, textAlign: "right", fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{score ?? "—"}</div>
     </div>

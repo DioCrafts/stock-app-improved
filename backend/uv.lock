@@ -207,7 +207,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pydantic-settings", specifier = ">=2.6" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-    { name = "yfinance", specifier = ">=0.2.50" },
+    { name = "yfinance", specifier = ">=1.4,<2" },
 ]
 
 [package.metadata.requires-dev]

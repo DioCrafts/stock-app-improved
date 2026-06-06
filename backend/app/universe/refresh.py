@@ -18,6 +18,7 @@ def refresh_universe(db_path: str | None = None) -> dict[str, int]:
     try:
         init_db(conn)
         queries.replace_universe(conn, rows)
+        queries.rebuild_universe_fts(conn)  # mantener el índice de búsqueda al día (L7)
         return queries.counts_by_market(conn)
     finally:
         conn.close()

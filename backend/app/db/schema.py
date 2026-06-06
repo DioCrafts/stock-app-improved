@@ -70,6 +70,9 @@ CREATE INDEX IF NOT EXISTS idx_snap_div_yield    ON company_snapshot(div_yield);
 CREATE INDEX IF NOT EXISTS idx_snap_roe          ON company_snapshot(roe);
 CREATE INDEX IF NOT EXISTS idx_snap_rev_growth   ON company_snapshot(rev_growth);
 CREATE INDEX IF NOT EXISTS idx_snap_price        ON company_snapshot(price);
+
+-- Índice de búsqueda FTS5 (ticker + nombre) para /search en O(log n) (L7)
+CREATE VIRTUAL TABLE IF NOT EXISTS universe_fts USING fts5(symbol, name);
 """
 
 

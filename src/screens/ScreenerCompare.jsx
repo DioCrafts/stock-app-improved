@@ -89,7 +89,7 @@ function Screener({ go, watch, toggleWatch }) {
           </div>
         )}
 
-        {loading ? <Loading /> : error ? <ErrorBox error={error} /> : (
+        {loading && !data ? <Loading /> : error ? <ErrorBox error={error} /> : (
           <Card pad={0}>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -206,7 +206,7 @@ function Compare({ go, set, setSet }) {
     () => (set.length ? api.companies(set) : Promise.resolve([])), [set.join(",")]);
   const cos = data || [];
   const remove = (t) => setSet((s) => s.filter((x) => x !== t));
-  const add = (t) => { setSet((s) => (s.includes(t) ? s : [...s, t]).slice(0, 5)); setAdding(false); };
+  const add = (t) => { setSet((s) => (s.includes(t) ? s : [...s, t]).slice(-5)); setAdding(false); };
 
   const bestIdx = (row) => {
     if (!row.better) return -1;
@@ -226,7 +226,7 @@ function Compare({ go, set, setSet }) {
     <div className="fade-up" style={{ padding: 24, height: "100%", overflow: "auto" }}>
       <PageHead title="Compare" sub={`${cos.length} companies side by side · best value per metric highlighted`} />
 
-      {loading ? <Loading /> : error ? <ErrorBox error={error} /> : (
+      {loading && !data ? <Loading /> : error ? <ErrorBox error={error} /> : (
       <Card pad={0} style={{ minWidth: "fit-content" }}>
         {/* header row: companies */}
         <div style={{ display: "grid", gridTemplateColumns: grid, position: "sticky", top: 0, background: "var(--surface)", zIndex: 2, borderBottom: "1px solid var(--border)" }}>

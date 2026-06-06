@@ -39,6 +39,10 @@ def _pct(v) -> float | None:
     return n * 100 if n is not None else None
 
 
+def _pick(*vals):  # primer valor no-None (respeta 0.0; evita el bug de truthiness, L2)
+    return next((v for v in vals if v is not None), None)
+
+
 def revenue_and_years(df) -> tuple[list[int], list[float]]:
     """(años, ingresos $B) ordenados oldest→newest. yfinance da columnas newest-first
     y suele traer el periodo más antiguo en NaN."""
@@ -46,13 +50,13 @@ def revenue_and_years(df) -> tuple[list[int], list[float]]:
         if df is None or getattr(df, "empty", True) or "Total Revenue" not in df.index:
             return [], []
         series = df.loc["Total Revenue"].dropna()
-        pairs = [
-            (getattr(ts, "year", None), float(v))
-            for ts, v in zip(series.index, series.values)
-            if getattr(ts, "year", None) is not None
-        ]
-        pairs.reverse()  # oldest→newest
-        return [y for y, _ in pairs], [v / 1e9 for _, v in pairs]
+        seen: dict[int, float] = {}
+        for ts, v in zip(series.index, series.values):  # columnas newest-first
+            y = getattr(ts, "year", None)
+            if y is not None and y not in seen:  # dedup: conserva la más reciente por año (L1)
+                seen[y] = float(v)
+        years = sorted(seen)
+        return years, [seen[y] / 1e9 for y in years]
     except Exception:  # noqa: BLE001 — datos irregulares → series vacías
         return [], []
 
@@ -102,12 +106,12 @@ def info_to_company(symbol: str, info: dict | None, revenue: list[float] | None 
         beta=_num(info.get("beta")),
         pe=_num(info.get("trailingPE")),
         fwdPe=_num(info.get("forwardPE")),
-        peg=_num(info.get("trailingPegRatio")) or _num(info.get("pegRatio")),
+        peg=_pick(_num(info.get("trailingPegRatio")), _num(info.get("pegRatio"))),
         pb=_num(info.get("priceToBook")),
         ps=_num(info.get("priceToSalesTrailing12Months")),
         evEbitda=_num(info.get("enterpriseToEbitda")),
         divYield=_num(info.get("dividendYield")),  # ya en puntos %
-        fcfYield=(fcf / mc_abs * 100) if (fcf and mc_abs) else None,
+        fcfYield=(fcf / mc_abs * 100) if (fcf is not None and mc_abs) else None,
         roe=_pct(info.get("returnOnEquity")),
         roic=None,  # no determinable desde yfinance
         grossMargin=_pct(info.get("grossMargins")),

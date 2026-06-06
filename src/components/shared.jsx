@@ -47,7 +47,7 @@ function CompositeMini({ score }) {
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
       <div style={{ width: 40, height: 6, borderRadius: 3, background: "var(--border)", overflow: "hidden" }}>
-        <div style={{ width: score + "%", height: "100%", background: c }} />
+        <div style={{ width: Math.max(0, Math.min(100, score)) + "%", height: "100%", background: c }} />
       </div>
       <span className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: c, width: 18, textAlign: "right" }}>{score}</span>
     </div>

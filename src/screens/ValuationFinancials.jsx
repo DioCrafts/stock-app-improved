@@ -72,7 +72,7 @@ function ValuationBody({ c }) {
   const defNetDebt = +(mc * (c.debtEq > 1 ? 0.08 : c.debtEq > 0.4 ? 0.03 : -0.04)).toFixed(1);
 
   const [inp, setInp] = useState(() => ({
-    fcf: +baseFCF.toFixed(1),
+    fcf: +Math.max(0.1, baseFCF).toFixed(1),  // FCF base > 0 → evita 0/0 NaN en las barras (L15)
     growth: Math.round(Math.max(3, Math.min(c.revGrowth || 8, 25))),
     years: 5,
     terminal: 2.5,
@@ -244,7 +244,7 @@ function DcfInput({ label, unit, v, min, max, step, onChange, hint }) {
 }
 
 function FcfBars({ flows }) {
-  const max = Math.max(...flows.map((f) => f.fcf));
+  const max = Math.max(1e-9, ...flows.map((f) => f.fcf));  // evita división por cero (L15)
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: 110 }}>
@@ -335,7 +335,15 @@ function FinancialsBody({ c, bundle }) {
     if (span <= 0) return null;
     return (Math.pow(pts[pts.length - 1].v / pts[0].v, 1 / span) - 1) * 100;
   };
-  const lastVal = (k) => (data.length ? data[data.length - 1][k] : null);
+  // último año con AMBAS claves no nulas (p.ej. cashflow más reciente que income) (L24)
+  const lastBoth = (a, b) => {
+    for (let i = data.length - 1; i >= 0; i--) {
+      if (data[i][a] != null && data[i][b]) return [data[i][a], data[i][b]];
+    }
+    return null;
+  };
+  const fcfRev = lastBoth("fcf", "revenue");
+  const capexRev = lastBoth("capex", "revenue");
 
   return (
     <>
@@ -404,9 +412,9 @@ function FinancialsBody({ c, bundle }) {
           ["Equity CAGR", fmt.pct(cagr("equity"), 1)],
         ].map(([l, v]) => <MiniStat key={l} label={l} value={v} />)}
         {tab === "cashflow" && [
-          ["FCF margin", lastVal("fcf") != null && lastVal("revenue") ? fmt.pctPlain(lastVal("fcf") / lastVal("revenue") * 100) : "—"],
+          ["FCF margin", fcfRev ? fmt.pctPlain(fcfRev[0] / fcfRev[1] * 100) : "—"],
           ["FCF yield", c.fcfYield ? fmt.pctPlain(c.fcfYield) : "—"],
-          ["Capex / rev", lastVal("capex") != null && lastVal("revenue") ? fmt.pctPlain(Math.abs(lastVal("capex")) / lastVal("revenue") * 100) : "—"],
+          ["Capex / rev", capexRev ? fmt.pctPlain(Math.abs(capexRev[0]) / capexRev[1] * 100) : "—"],
           ["FCF CAGR", fmt.pct(cagr("fcf"), 1)],
         ].map(([l, v]) => <MiniStat key={l} label={l} value={v} />)}
       </div>

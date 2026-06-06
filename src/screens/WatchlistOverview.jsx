@@ -32,19 +32,20 @@ function Watchlist({ go, watch, toggleWatch }) {
   const best = rows.length ? [...rows].sort((a, b) => (b.change ?? -1e9) - (a.change ?? -1e9))[0] : null;
   const worst = rows.length ? [...rows].sort((a, b) => (a.change ?? 1e9) - (b.change ?? 1e9))[0] : null;
   const gainers = rows.filter((c) => c.change > 0).length;
+  const decliners = rows.filter((c) => c.change < 0).length;  // null/0 ya no cuenta como "declining" (L16)
 
   return (
     <div className="fade-up" style={{ padding: 24, height: "100%", overflowY: "auto" }}>
       <PageHead title="Watchlist" sub={`${rows.length} companies tracked · NYSE / NASDAQ / TSX / LSE`} />
 
-      {loading ? <Loading /> : error ? <ErrorBox error={error} /> : rows.length === 0 ? (
+      {loading && !data ? <Loading /> : error ? <ErrorBox error={error} /> : rows.length === 0 ? (
         <Empty label="Tu watchlist está vacía. Añade empresas desde el Screener o la búsqueda." />
       ) : (
         <>
           {/* summary strip */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 18 }}>
             <SummaryTile label="Avg composite score" value={avgScore} ring />
-            <SummaryTile label="Advancing today" value={`${gainers}/${rows.length}`} sub={`${rows.length - gainers} declining`} />
+            <SummaryTile label="Advancing today" value={`${gainers}/${rows.length}`} sub={`${decliners} declining`} />
             <SummaryTile label="Top mover" value={best ? best.ticker : "—"} delta={best ? best.change : null} onClick={best ? () => go("company", best.ticker) : null} />
             <SummaryTile label="Laggard" value={worst ? worst.ticker : "—"} delta={worst ? worst.change : null} onClick={worst ? () => go("company", worst.ticker) : null} />
           </div>

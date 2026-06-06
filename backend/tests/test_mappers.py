@@ -2,7 +2,9 @@
 
 Los valores de entrada replican la salida REAL de yfinance 1.4.1 observada en vivo.
 """
-from app.ingest.mappers import info_to_company
+import pandas as pd
+
+from app.ingest.mappers import info_to_company, revenue_and_years
 
 AAPL_INFO = {
     "longName": "Apple Inc.", "sector": "Technology", "fullExchangeName": "NasdaqGS",
@@ -52,3 +54,22 @@ def test_missing_fields_become_none():
     assert c.pe is None and c.roe is None and c.marketCap is None
     assert c.divYield is None and c.revenue == []
     assert c.change == 0.0
+
+
+def test_revenue_dedup_by_year():  # L1
+    df = pd.DataFrame({
+        pd.Timestamp("2025-09-30"): {"Total Revenue": 400e9},
+        pd.Timestamp("2025-06-30"): {"Total Revenue": 380e9},  # mismo año 2025 (TTM)
+        pd.Timestamp("2024-09-30"): {"Total Revenue": 390e9},
+    })
+    years, rev = revenue_and_years(df)
+    assert years == [2024, 2025]      # un único 2025
+    assert rev[-1] == 400.0           # conserva la columna más reciente de 2025
+
+
+def test_zero_values_not_dropped():  # L2 (0.0 es dato válido, no None)
+    c = info_to_company("X", {"currency": "USD", "currentPrice": 10.0, "previousClose": 10.0,
+                              "marketCap": 1e9, "freeCashflow": 0.0,
+                              "trailingPegRatio": 0.0, "pegRatio": 2.0})
+    assert c.fcfYield == 0.0          # FCF nulo → yield 0.0, no None
+    assert c.peg == 0.0               # respeta el 0.0 de trailing (no cae a pegRatio por truthiness)

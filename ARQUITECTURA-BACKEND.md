@@ -341,6 +341,11 @@ quiere multi-dispositivo.
       rejilla de sensibilidad.
 - [x] **Ops (M8/M9/M10):** caché TTL en el volumen persistente (`CACHE_DIR=/data/cache`, M8) + timeouts de
       nginx para `/financials` (M9) + límites de memoria/CPU en compose (M10). Verificado en Docker.
+- [x] **Lows (L1–L3, L7, L13, L15, L16, L18–L22, L24):** dedup de `revenue` por año (L1), `0.0`≠`None` en
+      peg/fcfYield (L2), **FTS5** en `/search` (L3/L7), `useAsync` sin parpadeo en refetch (L13), guards de
+      NaN en FcfBars (L15), `gainers/decliners` correctos (L16), pin `yfinance>=1.4,<2` (L18), `slice(-5)`
+      en Compare (L19/L20), normalización de barra en `api.js` (L21), clamp de scores en widgets (L22),
+      FCF margin/Capex-rev sobre el último año con ambos datos (L24). 46 tests; ruff limpio.
 
 ### Fase 9 — Despliegue y operación  ✅ COMPLETADA (núcleo)
 - [x] `backend/Dockerfile` (uv + Python 3.12) + `Dockerfile` frontend (build Vite → Nginx) + `docker-compose.yml`

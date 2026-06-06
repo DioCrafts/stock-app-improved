@@ -5,7 +5,8 @@
    ============================================================ */
 import { useState, useEffect } from "react";
 
-const BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+// sin barra final → evita "//ruta" al concatenar (L21)
+const BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 async function get(path, params) {
   // base puede ser absoluta (dev: http://localhost:8000) o relativa (prod: /api)
@@ -38,12 +39,13 @@ export function useAsync(fn, deps) {
   const [state, setState] = useState({ loading: true, error: null, data: null });
   useEffect(() => {
     let alive = true;
-    setState({ loading: true, error: null, data: null });
+    // conservar `data` durante el refetch → la pantalla no parpadea (L13)
+    setState((s) => ({ ...s, loading: true, error: null }));
     Promise.resolve()
       .then(fn)
       .then(
         (data) => { if (alive) setState({ loading: false, error: null, data }); },
-        (error) => { if (alive) setState({ loading: false, error, data: null }); },
+        (error) => { if (alive) setState((s) => ({ loading: false, error, data: s.data })); },
       );
     return () => { alive = false; };
   }, deps); // eslint-disable-line react-hooks/exhaustive-deps
