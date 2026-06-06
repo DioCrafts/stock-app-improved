@@ -15,11 +15,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.db.schema import connect, init_db
 from app.routers import companies, financials, market, prices, screener, search
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Asegurar el esquema: en un despliegue limpio (volumen vacío) las tablas aún no
+    # existen → sin esto los endpoints darían 500 en vez de devolver vacío.
+    _conn = connect(settings.db_path)
+    try:
+        init_db(_conn)
+    finally:
+        _conn.close()
+
     scheduler = None
     if settings.enable_scheduler:
         from apscheduler.schedulers.background import BackgroundScheduler
@@ -27,9 +36,11 @@ async def lifespan(app: FastAPI):
 
         from app.jobs.refresh_snapshots import refresh_snapshots
         from app.jobs.score_snapshots import score_universe
+        from app.universe.refresh import refresh_universe
 
         def scheduled_refresh():
-            # refresca lo que falte + lo más viejo de N horas, luego recalcula scores
+            # universo → fundamentales (lo que falte + lo más viejo de N horas) → scores
+            refresh_universe()
             refresh_snapshots(max_age_hours=settings.refresh_max_age_hours)
             score_universe()
 

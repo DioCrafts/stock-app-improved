@@ -8,7 +8,8 @@ import { useState, useEffect } from "react";
 const BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 async function get(path, params) {
-  const url = new URL(BASE + path);
+  // base puede ser absoluta (dev: http://localhost:8000) o relativa (prod: /api)
+  const url = new URL(BASE + path, window.location.origin);
   if (params) {
     for (const [k, v] of Object.entries(params)) {
       if (v != null && v !== "") url.searchParams.set(k, v);

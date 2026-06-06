@@ -326,11 +326,16 @@ quiere multi-dispositivo.
 - [ ] Lint + typecheck (backend y frontend).
 - [ ] Revisión de rendimiento del screener/search sobre el universo completo.
 
-### Fase 9 — Despliegue y operación
-- [ ] `Dockerfile` del backend + `docker-compose` (backend + volumen SQLite + scheduler).
-- [ ] Build del frontend (`vite build`) y servirlo (Nginx o el propio backend).
-- [ ] Configurar el job programado en producción + variables de entorno / CORS de prod.
-- [ ] Health check, logging básico y documentación final.
+### Fase 9 — Despliegue y operación  ✅ COMPLETADA (núcleo)
+- [x] `backend/Dockerfile` (uv + Python 3.12) + `Dockerfile` frontend (build Vite → Nginx) + `docker-compose.yml`
+      (backend + frontend + volumen SQLite `dbdata`). Ambas imágenes **construyen y arrancan** (verificado).
+- [x] Nginx sirve la SPA y **proxya `/api` → backend** (mismo origen, sin CORS en prod). `api.js` soporta API relativa.
+- [x] Scheduler en prod (`ENABLE_SCHEDULER=true`): cron diario universo → fundamentales (refresco por antigüedad) → scores.
+- [x] Health check (compose) + endpoints sanos con DB vacía.
+- **Fix de despliegue (hallado al verificar):** `init_db` ahora se ejecuta al arrancar la app → con volumen nuevo
+  los endpoints devuelven vacío (200) en vez de 500. El bootstrap de datos requiere **orden**:
+  `app.universe.refresh` → `app.jobs.refresh_snapshots` → `app.jobs.score_snapshots` (documentado en compose).
+- [ ] Pinear versión de la imagen `uv`, logging estructurado y CI — endurecimiento (Fase 8).
 
 ### Fase 10 — Ampliaciones futuras (opcionales)
 - [ ] Auth + watchlists por usuario (multi-dispositivo).
