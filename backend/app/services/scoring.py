@@ -19,6 +19,9 @@ from app.models.company import Company, Scores
 
 W_VALUE, W_GROWTH, W_HEALTH, W_MOMENTUM = 0.35, 0.30, 0.20, 0.15
 
+MIN_PERCENTILE_N = 10       # n mínimo por (mercado, factor) para fiarse del percentil (M14)
+MIN_COMPOSITE_PILLARS = 2   # pilares no nulos mínimos para emitir composite (M13)
+
 # (factor, dirección): dir=1 → mayor es mejor · dir=-1 → menor es mejor (se invierte)
 VALUE_FACTORS = [
     ("pe", -1), ("fwdPe", -1), ("pb", -1), ("ps", -1), ("evEbitda", -1),
@@ -62,7 +65,8 @@ def company_factors(c: Company, ret_1y: float | None = None,
 
 def _percentile(sorted_vals: list[float], v: float | None, direction: int) -> float | None:
     n = len(sorted_vals)
-    if n == 0 or v is None:
+    # grupos pequeños → el percentil no es fiable (n=1→50, n=2→25/75): se ignora el factor (M14)
+    if v is None or n < MIN_PERCENTILE_N:
         return None
     lo = bisect.bisect_left(sorted_vals, v)
     hi = bisect.bisect_right(sorted_vals, v)
@@ -76,14 +80,20 @@ def _pillar(sorted_by_factor: dict, factors: dict, factor_list: list) -> int | N
         p = _percentile(sorted_by_factor.get(name, []), factors.get(name), direction)
         if p is not None:
             vals.append(p)
-    return _jsround(sum(vals) / len(vals)) if vals else None
+    # cobertura mínima: pilares anchos (≥3 factores) exigen ≥2; los de 2 factores, ≥1 (M13)
+    min_required = 2 if len(factor_list) >= 3 else 1
+    return _jsround(sum(vals) / len(vals)) if len(vals) >= min_required else None
 
 
 def _composite(value, growth, health, momentum) -> int | None:
-    pairs = [(value, W_VALUE), (growth, W_GROWTH), (health, W_HEALTH), (momentum, W_MOMENTUM)]
-    num = sum(s * w for s, w in pairs if s is not None)
-    den = sum(w for s, w in pairs if s is not None)
-    return _jsround(num / den) if den > 0 else None  # pesos renormalizados si falta un pilar
+    present = [(s, w) for s, w in
+               [(value, W_VALUE), (growth, W_GROWTH), (health, W_HEALTH), (momentum, W_MOMENTUM)]
+               if s is not None]
+    if len(present) < MIN_COMPOSITE_PILLARS:  # exigir ≥2 pilares (M13: evita composite de un solo pilar)
+        return None
+    num = sum(s * w for s, w in present)
+    den = sum(w for s, w in present)
+    return _jsround(num / den)  # pesos renormalizados sobre los pilares presentes
 
 
 def compute_scores(records: list[dict]) -> dict[str, Scores]:

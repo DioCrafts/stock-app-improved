@@ -9,7 +9,7 @@ from diskcache import Cache
 
 from app.config import settings
 
-_cache = Cache(".cache")
+_cache = Cache(settings.cache_dir)
 _MISS = object()
 
 

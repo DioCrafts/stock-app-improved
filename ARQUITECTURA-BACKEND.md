@@ -334,6 +334,13 @@ quiere multi-dispositivo.
 - [x] **Datos (M11/M12):** `financialCurrency` en el contrato + conversión FX (yfinance `{a}{b}=X`) de los
       estados financieros (siempre en vivo → arreglado ya) y de `revenue` para DCF/gráficos. Los snapshots
       ya guardados rellenan `financialCurrency` al re-ingerir o en el refresco diario del scheduler.
+- [x] **Scoring robusto (M13/M14):** cobertura mínima por pilar (los anchos exigen ≥2 factores) + n mínimo
+      por percentil (10) + composite exige ≥2 pilares. `with_composite` 10.289 → 9.665 (descarta composites
+      poco fiables).
+- [x] **DCF (M15):** guarda de Gordon (`r − g ≤ 0.5%` → fair value `—`), evita valores absurdos/∞ en la
+      rejilla de sensibilidad.
+- [x] **Ops (M8/M9/M10):** caché TTL en el volumen persistente (`CACHE_DIR=/data/cache`, M8) + timeouts de
+      nginx para `/financials` (M9) + límites de memoria/CPU en compose (M10). Verificado en Docker.
 
 ### Fase 9 — Despliegue y operación  ✅ COMPLETADA (núcleo)
 - [x] `backend/Dockerfile` (uv + Python 3.12) + `Dockerfile` frontend (build Vite → Nginx) + `docker-compose.yml`
@@ -480,8 +487,8 @@ Scoring por **percentiles dentro de cada mercado** (US/CA/UK por separado). Cada
 - **Inputs de momentum** se capturan en la ingesta (`ret_1y`, `px_vs_200d`) desde `.info` (sin descargas extra).
 - **Limpieza:** ratios de valoración no positivos (pérdidas) → ignorados. Percentiles robustos a outliers
   (sin winsorizar). Pilar/score sin datos → `None` (la UI pinta "—").
-- **Caveat (pendiente, opcional):** la renormalización permite que una empresa con **pocos datos** puntúe
-  alto (p.ej. composite alto solo por momentum). Mitigación opcional: exigir un mínimo de pilares (p.ej. ≥3,
-  o value+growth+health) para emitir composite. No aplicado todavía.
+- **Caveat — RESUELTO (M13/M14):** se exige cobertura mínima por pilar (anchos ≥2 factores), n≥10 por
+  percentil y ≥2 pilares para el composite, de modo que una empresa con pocos datos ya no puntúa alto;
+  los casos no fiables quedan en `None` ("—").
 - **Nota:** los percentiles son significativos sobre el **universo completo**; con solo una muestra ingerida
   son ilustrativos. Ejecutar scoring tras la ingesta completa.

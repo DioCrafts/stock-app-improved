@@ -6,11 +6,13 @@
 #   docker compose exec backend python -m app.jobs.score_snapshots     (3) scoring
 # Después, el servicio 'scheduler' repite el pipeline a diario (REFRESH_CRON). El proceso
 # web NUNCA ejecuta el job pesado (ver H2): scheduler y backend comparten imagen y volumen.
+# Límites de recursos (mem_limit/cpus) son puntos de partida — ajustar tras medir.
 services:
   backend:
     build: ./backend
     environment:
       DB_PATH: /data/app.db
+      CACHE_DIR: /data/cache        # caché TTL en el volumen → sobrevive a redeploys (M8)
     volumes:
       - dbdata:/data
     healthcheck:
@@ -18,6 +20,8 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
+    mem_limit: 768m                  # M10
+    cpus: "1.0"
     restart: unless-stopped
 
   scheduler:
@@ -25,10 +29,13 @@ services:
     command: ["python", "-m", "app.jobs.scheduler"]
     environment:
       DB_PATH: /data/app.db
+      CACHE_DIR: /data/cache
       REFRESH_CRON: "0 6 * * *"
       REFRESH_MAX_AGE_HOURS: "20"
     volumes:
       - dbdata:/data
+    mem_limit: 1536m                 # M10 — carga DataFrames de FinanceDatabase/yfinance + scoring
+    cpus: "1.0"
     restart: unless-stopped
 
   frontend:
@@ -40,6 +47,8 @@ services:
       - "8080:80"
     depends_on:
       - backend
+    mem_limit: 128m                  # M10 — Nginx estáticos, ligero
+    cpus: "0.5"
     restart: unless-stopped
 
 volumes:

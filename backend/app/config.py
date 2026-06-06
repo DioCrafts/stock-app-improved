@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     port: int = 8000
     cors_origins: str = "http://localhost:5173"  # coma-separado
     cache_ttl_seconds: int = 900
+    cache_dir: str = ".cache"  # en Docker apuntar al volumen (CACHE_DIR=/data/cache) para que persista
     db_path: str = "./data/app.db"
     refresh_cron: str = "0 6 * * *"  # usado por el proceso planificador (app.jobs.scheduler)
     refresh_max_age_hours: float = 20  # el planificador refresca snapshots más viejos de esto

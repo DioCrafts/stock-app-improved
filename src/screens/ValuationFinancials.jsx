@@ -91,6 +91,10 @@ function ValuationBody({ c }) {
       pv += disc;
     }
     const last = inp.fcf * Math.pow(1 + gr, inp.years);
+    // Gordon: si WACC ≤ crecimiento terminal (r − g ≤ 0.5%), la perpetuidad no es válida (M15)
+    if (r - g <= 0.005) {
+      return { flows, pv, pvTv: null, ev: null, equity: null, fair: null, upside: null };
+    }
     const tv = (last * (1 + g)) / (r - g);
     const pvTv = tv / Math.pow(1 + r, inp.years);
     const ev = pv + pvTv;
@@ -155,7 +159,7 @@ function ValuationBody({ c }) {
         <Card title="Enterprise → equity bridge" pad={18}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
             <Stat label="PV of forecast FCF" value={fmt.cap(res.pv)} />
-            <Stat label="PV of terminal value" value={fmt.cap(res.pvTv)} sub={`${Math.round(res.pvTv / res.ev * 100)}% of EV`} />
+            <Stat label="PV of terminal value" value={fmt.cap(res.pvTv)} sub={res.ev ? `${Math.round(res.pvTv / res.ev * 100)}% of EV` : "—"} />
             <Stat label="Enterprise value" value={fmt.cap(res.ev)} />
             <Stat label="Equity value" value={fmt.cap(res.equity)} sub={`− ${fmt.cap(inp.netDebt)} net debt`} />
           </div>
@@ -182,8 +186,15 @@ function ValuationBody({ c }) {
                     <td className="mono" style={{ padding: "9px 12px", fontSize: 11, color: "var(--text-2)" }}>{w.toFixed(1)}%</td>
                     {termRange.map((g) => {
                       const f = calc(w, g).fair;
-                      const up = c.price ? f / c.price - 1 : 0;
                       const isCur = Math.abs(w - inp.wacc) < 0.01 && Math.abs(g - inp.terminal) < 0.01;
+                      if (f == null) {  // WACC ≤ crecimiento terminal → celda sin valor (M15)
+                        return (
+                          <td key={g} className="mono tnum" style={{ padding: "9px 12px", textAlign: "right",
+                            color: "var(--text-3)", background: isCur ? "var(--accent-bg)" : "transparent",
+                            outline: isCur ? "1px solid var(--accent)" : "none", outlineOffset: -1 }}>—</td>
+                        );
+                      }
+                      const up = c.price ? f / c.price - 1 : 0;
                       return (
                         <td key={g} className="mono tnum" style={{ padding: "9px 12px", textAlign: "right", fontWeight: isCur ? 700 : 400,
                           color: up >= 0 ? "var(--up)" : "var(--down)",
