@@ -56,3 +56,19 @@ def get_fast_info(symbol: str) -> dict:
         return {"lastPrice": float(fi["lastPrice"]), "previousClose": float(fi["previousClose"])}
 
     return memoize(f"fast:{symbol}", lambda: _retry(fetch), ttl=120)
+
+
+def get_fx_rate(frm: str | None, to: str | None) -> float | None:
+    """Tipo de cambio: unidades de `to` por 1 de `frm` (par Yahoo {frm}{to}=X). TTL 1h.
+    Devuelve 1.0 si coinciden y None si no se puede obtener."""
+    if not frm or not to or frm == to:
+        return 1.0
+    pair = f"{frm}{to}=X"
+    try:
+        return memoize(
+            f"fx:{pair}",
+            lambda: _retry(lambda: float(yf.Ticker(pair).fast_info["lastPrice"])),
+            ttl=3600,
+        )
+    except Exception:  # noqa: BLE001 — par inexistente / sin dato → sin conversión
+        return None

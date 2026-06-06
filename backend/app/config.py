@@ -15,9 +15,8 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"  # coma-separado
     cache_ttl_seconds: int = 900
     db_path: str = "./data/app.db"
-    refresh_cron: str = "0 6 * * *"
-    refresh_max_age_hours: float = 20  # el cron refresca snapshots más viejos de esto
-    enable_scheduler: bool = False  # arrancar el job batch dentro del proceso web (por defecto off)
+    refresh_cron: str = "0 6 * * *"  # usado por el proceso planificador (app.jobs.scheduler)
+    refresh_max_age_hours: float = 20  # el planificador refresca snapshots más viejos de esto
     markets: str = "US,CA,UK"
     universe_scope: str = "equities"  # equities | all
     uk_gbp_only: bool = True  # UK: solo empresas en GBP (excluir cross-listings extranjeros)

@@ -6,12 +6,15 @@
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Path, Query
 
 from app.models.company import Company
 from app.services import company_service
+from app.validation import TICKER_PATTERN, is_valid_ticker
 
 router = APIRouter(prefix="/companies", tags=["companies"])
+
+_MAX_TICKERS = 50  # cota de fan-out por request (limita amplificación a yfinance, M2)
 
 
 @router.get("", response_model=list[Company])
@@ -22,12 +25,13 @@ def list_companies(
 ) -> list[Company]:
     if tickers:
         symbols = [t.strip().upper() for t in tickers.split(",") if t.strip()]
+        symbols = [s for s in symbols if is_valid_ticker(s)][:_MAX_TICKERS]
         return company_service.get_companies(symbols)
     return company_service.list_companies(limit=limit, offset=offset)
 
 
 @router.get("/{ticker}", response_model=Company)
-def get_company(ticker: str) -> Company:
+def get_company(ticker: str = Path(pattern=TICKER_PATTERN)) -> Company:
     try:
         return company_service.get_company(ticker.upper())
     except Exception as err:  # noqa: BLE001

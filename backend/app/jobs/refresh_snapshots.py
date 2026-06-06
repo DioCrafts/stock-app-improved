@@ -98,7 +98,8 @@ def refresh_snapshots(limit: int | None = None, only_missing: bool = True,
         if max_age_hours is not None:
             done = queries.fresh_symbols(conn, max_age_hours)
         elif only_missing:
-            done = queries.snapshot_symbols(conn)
+            # solo lo que está OK cuenta como "hecho" → los status='error' se reintentan (H1)
+            done = queries.snapshot_symbols(conn, status="ok")
         else:
             done = set()
         todo = [u for u in universe if u["symbol"] not in done]

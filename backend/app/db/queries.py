@@ -119,10 +119,22 @@ def list_company_data(conn: sqlite3.Connection, limit: int = 50, offset: int = 0
     """Blobs JSON de Company (status ok), ordenados por market cap desc (nulls al final)."""
     rows = conn.execute(
         "SELECT data FROM company_snapshot WHERE status = 'ok' "
-        "ORDER BY market_cap IS NULL, market_cap DESC LIMIT ? OFFSET ?",
+        "ORDER BY market_cap DESC LIMIT ? OFFSET ?",  # DESC ya deja los NULL al final (usa índice)
         (limit, offset),
     ).fetchall()
     return [r["data"] for r in rows]
+
+
+def snapshots_by_symbols(conn: sqlite3.Connection, symbols: list[str]) -> dict[str, str]:
+    """Blobs JSON (status ok) de varios símbolos en UNA sola query (evita N conexiones, M6)."""
+    if not symbols:
+        return {}
+    placeholders = ",".join("?" * len(symbols))
+    rows = conn.execute(
+        f"SELECT symbol, data FROM company_snapshot WHERE status = 'ok' AND symbol IN ({placeholders})",
+        list(symbols),
+    ).fetchall()
+    return {r["symbol"]: r["data"] for r in rows}
 
 
 def search_universe(conn: sqlite3.Connection, q: str, limit: int = 10) -> list[dict]:
@@ -164,7 +176,12 @@ def screen(conn: sqlite3.Connection, filters: dict, sort: str = "composite",
            order: str = "desc", limit: int = 50, offset: int = 0) -> tuple[int, list[str]]:
     """Filtra el snapshot (espejo de matchPass del front: null en la columna = excluido).
     Devuelve (total, [blobs JSON de Company])."""
-    where = ["status = 'ok'"]
+    sort_col = _SORT_COLS.get(sort, "score_composite")
+    order_sql = "DESC" if order.lower() == "desc" else "ASC"
+
+    # Ordenar por una columna exige tenerla (NULL fuera) → permite usar índice y evita
+    # el `ORDER BY col IS NULL, col` que forzaba full scan + temp B-TREE (M5).
+    where = ["status = 'ok'", f"{sort_col} IS NOT NULL"]
     params: list = []
     for key, (col, op) in _SCREEN_FILTERS.items():
         v = filters.get(key)
@@ -176,12 +193,9 @@ def screen(conn: sqlite3.Connection, filters: dict, sort: str = "composite",
     total = conn.execute(
         f"SELECT COUNT(*) FROM company_snapshot WHERE {where_sql}", params
     ).fetchone()[0]
-
-    sort_col = _SORT_COLS.get(sort, "score_composite")
-    order_sql = "DESC" if order.lower() == "desc" else "ASC"
     rows = conn.execute(
         f"SELECT data FROM company_snapshot WHERE {where_sql} "
-        f"ORDER BY {sort_col} IS NULL, {sort_col} {order_sql} LIMIT ? OFFSET ?",
+        f"ORDER BY {sort_col} {order_sql} LIMIT ? OFFSET ?",
         params + [limit, offset],
     ).fetchall()
     return total, [r["data"] for r in rows]

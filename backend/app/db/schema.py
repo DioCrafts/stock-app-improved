@@ -57,10 +57,19 @@ CREATE TABLE IF NOT EXISTS company_snapshot (
     error           TEXT,
     updated_at      TEXT
 );
-CREATE INDEX IF NOT EXISTS idx_snap_market     ON company_snapshot(market);
-CREATE INDEX IF NOT EXISTS idx_snap_composite  ON company_snapshot(score_composite);
-CREATE INDEX IF NOT EXISTS idx_snap_pe         ON company_snapshot(pe);
-CREATE INDEX IF NOT EXISTS idx_snap_marketcap  ON company_snapshot(market_cap);
+CREATE INDEX IF NOT EXISTS idx_snap_market       ON company_snapshot(market);
+CREATE INDEX IF NOT EXISTS idx_snap_composite    ON company_snapshot(score_composite);
+CREATE INDEX IF NOT EXISTS idx_snap_pe           ON company_snapshot(pe);
+CREATE INDEX IF NOT EXISTS idx_snap_marketcap    ON company_snapshot(market_cap);
+-- resto de columnas de orden/filtro del screener (M5/L6)
+CREATE INDEX IF NOT EXISTS idx_snap_score_value  ON company_snapshot(score_value);
+CREATE INDEX IF NOT EXISTS idx_snap_score_growth ON company_snapshot(score_growth);
+CREATE INDEX IF NOT EXISTS idx_snap_peg          ON company_snapshot(peg);
+CREATE INDEX IF NOT EXISTS idx_snap_pb           ON company_snapshot(pb);
+CREATE INDEX IF NOT EXISTS idx_snap_div_yield    ON company_snapshot(div_yield);
+CREATE INDEX IF NOT EXISTS idx_snap_roe          ON company_snapshot(roe);
+CREATE INDEX IF NOT EXISTS idx_snap_rev_growth   ON company_snapshot(rev_growth);
+CREATE INDEX IF NOT EXISTS idx_snap_price        ON company_snapshot(price);
 """
 
 

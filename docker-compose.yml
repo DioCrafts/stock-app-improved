@@ -1,25 +1,34 @@
-# Stack completo: frontend (Nginx) + backend (FastAPI) + volumen SQLite.
+# Stack: frontend (Nginx) + backend (FastAPI, solo API) + scheduler (cron de ingesta) + volumen SQLite.
 #   docker compose up --build        → http://localhost:8080
-# Bootstrap de datos (volumen nuevo), en orden:
+# Bootstrap de datos (volumen nuevo), en orden (puede tardar horas la ingesta):
 #   docker compose exec backend python -m app.universe.refresh         (1) universo (~13.8k tickers)
-#   docker compose exec backend python -m app.jobs.refresh_snapshots   (2) ingesta (largo)
+#   docker compose exec backend python -m app.jobs.refresh_snapshots   (2) ingesta
 #   docker compose exec backend python -m app.jobs.score_snapshots     (3) scoring
-# Con ENABLE_SCHEDULER=true, el cron repite los 3 pasos a diario (REFRESH_CRON).
+# Después, el servicio 'scheduler' repite el pipeline a diario (REFRESH_CRON). El proceso
+# web NUNCA ejecuta el job pesado (ver H2): scheduler y backend comparten imagen y volumen.
 services:
   backend:
     build: ./backend
     environment:
       DB_PATH: /data/app.db
-      ENABLE_SCHEDULER: "true"        # cron interno (refresco diario + scoring)
-      REFRESH_CRON: "0 6 * * *"
-      REFRESH_MAX_AGE_HOURS: "20"
     volumes:
-      - dbdata:/data                  # la DB persiste entre reinicios
+      - dbdata:/data
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  scheduler:
+    build: ./backend
+    command: ["python", "-m", "app.jobs.scheduler"]
+    environment:
+      DB_PATH: /data/app.db
+      REFRESH_CRON: "0 6 * * *"
+      REFRESH_MAX_AGE_HOURS: "20"
+    volumes:
+      - dbdata:/data
     restart: unless-stopped
 
   frontend:

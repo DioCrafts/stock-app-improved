@@ -285,8 +285,9 @@ quiere multi-dispositivo.
 - [x] `db/queries.py`: `upsert_snapshots`/`get_snapshot`/`count_snapshots`/`snapshot_symbols` (resumibilidad) + `universe_rows`.
 - [x] `jobs/refresh_snapshots.py`: job **resumible** (`only_missing`), tolerante a fallos (status `error`), con
       pausas y escritura por lotes. CLI `--limit/--all/--pause`. Smoke test **15/15 OK**.
-- [x] Scheduler APScheduler (`ENABLE_SCHEDULER`, cron `REFRESH_CRON`): refresca snapshots más viejos de
-      `REFRESH_MAX_AGE_HOURS` (def. 20h) y recalcula scores. Frescura diaria de valores ya cargados resuelta.
+- [x] Scheduler en **proceso dedicado** (`app/jobs/scheduler.py`, BlockingScheduler), NUNCA en el web (H2):
+      cron `REFRESH_CRON` → universo → snapshots (refresco por antigüedad `REFRESH_MAX_AGE_HOURS`) → scores.
+      `max_instances=1` + `coalesce` + `misfire_grace_time=3600` (M7). Frescura diaria resuelta.
 - [x] Refresco por antigüedad (`refresh_snapshots(max_age_hours=…)` / `--max-age-hours`) + **WAL** en SQLite
       (API lee y job escribe sin bloqueos).
 - [~] Ingesta COMPLETA (~13.790): **lanzada en background** (resumible; ~horas por rate-limit de Yahoo).
@@ -321,16 +322,24 @@ quiere multi-dispositivo.
 - [x] Verificado: `npm run build` OK (22 módulos); backend + CORS + Vite dev server sirviendo y `api.js` apuntando al backend. (Render visual en navegador: pendiente de confirmación manual.)
 
 ### Fase 8 — Calidad y robustez
+- [x] **Seguridad (auditoría M1–M4):** validación estricta de `ticker` (`app/validation.py`, M1) +
+      cota de fan-out por request + rate-limit `limit_req` en nginx (M2) + contenedores **no-root**
+      (uid 1001, M3) + cabeceras de seguridad/gzip/`client_max_body_size` en nginx (M4). Verificado en Docker.
 - [ ] Tests de integración de endpoints con yfinance mockeado.
 - [ ] Manejo end-to-end de errores, timeouts y fallback cuando yfinance falla.
 - [ ] Lint + typecheck (backend y frontend).
-- [ ] Revisión de rendimiento del screener/search sobre el universo completo.
+- [x] **Rendimiento (M5/M6/L6):** `ORDER BY` con `col IS NOT NULL` en vez de `col IS NULL, col`
+      (EXPLAIN confirma `SEARCH ... USING INDEX`, sin temp B-TREE) + índices para todas las columnas de
+      orden/filtro + batch en watchlist/compare (1 conexión + 1 query). Pendiente: FTS5 para search (L7).
+- [x] **Datos (M11/M12):** `financialCurrency` en el contrato + conversión FX (yfinance `{a}{b}=X`) de los
+      estados financieros (siempre en vivo → arreglado ya) y de `revenue` para DCF/gráficos. Los snapshots
+      ya guardados rellenan `financialCurrency` al re-ingerir o en el refresco diario del scheduler.
 
 ### Fase 9 — Despliegue y operación  ✅ COMPLETADA (núcleo)
 - [x] `backend/Dockerfile` (uv + Python 3.12) + `Dockerfile` frontend (build Vite → Nginx) + `docker-compose.yml`
       (backend + frontend + volumen SQLite `dbdata`). Ambas imágenes **construyen y arrancan** (verificado).
 - [x] Nginx sirve la SPA y **proxya `/api` → backend** (mismo origen, sin CORS en prod). `api.js` soporta API relativa.
-- [x] Scheduler en prod (`ENABLE_SCHEDULER=true`): cron diario universo → fundamentales (refresco por antigüedad) → scores.
+- [x] Scheduler como **servicio aparte** en compose (`scheduler`, misma imagen+volumen que `backend`): el web solo sirve la API (H2 resuelto; sin riesgo multi-worker).
 - [x] Health check (compose) + endpoints sanos con DB vacía.
 - **Fix de despliegue (hallado al verificar):** `init_db` ahora se ejecuta al arrancar la app → con volumen nuevo
   los endpoints devuelven vacío (200) en vez de 500. El bootstrap de datos requiere **orden**:

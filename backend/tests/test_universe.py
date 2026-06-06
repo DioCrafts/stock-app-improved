@@ -42,8 +42,10 @@ def test_market_for_exchange():
 
 
 def test_to_yahoo():
-    # US: '.' -> '-'
+    # US: '.' y '/' -> '-' (clases de acción)
     assert to_yahoo("BRK.B", "NYQ") == "BRK-B"
+    assert to_yahoo("BRK/A", "NYQ") == "BRK-A"
+    assert to_yahoo("BF/B", "NYQ") == "BF-B"
     assert to_yahoo("AAPL", "NMS") == "AAPL"
     # no-US: intacto (FinanceDatabase ya trae sufijo Yahoo)
     assert to_yahoo("SHOP.TO", "TOR") == "SHOP.TO"

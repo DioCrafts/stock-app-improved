@@ -30,8 +30,9 @@ def market_for_exchange(code: str | None) -> str | None:
 
 
 def to_yahoo(symbol: str, exchange: str) -> str:
-    """Símbolo en formato yfinance. Para US, '.' → '-' (BRK.B → BRK-B); el resto se
-    deja como viene de FinanceDatabase (ya trae el sufijo Yahoo correcto)."""
+    """Símbolo en formato yfinance. Para US, las clases de acción usan '-' en Yahoo,
+    pero FinanceDatabase las trae con '.' o '/' (BRK.B/BRK/A → BRK-B/BRK-A); el resto
+    se deja como viene (ya trae el sufijo Yahoo correcto)."""
     if exchange in US_EXCHANGES:
-        return symbol.replace(".", "-")
+        return symbol.replace(".", "-").replace("/", "-")
     return symbol

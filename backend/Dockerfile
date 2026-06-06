@@ -17,5 +17,11 @@ RUN uv sync --frozen --no-dev
 # 2) código de la app
 COPY app ./app
 
+# 3) usuario no-root + dirs escribibles (volumen DB y caché en disco) — M3
+RUN useradd --system --uid 1001 appuser \
+    && mkdir -p /data /app/.cache \
+    && chown -R appuser:appuser /data /app
+USER appuser
+
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

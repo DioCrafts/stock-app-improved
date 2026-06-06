@@ -92,6 +92,7 @@ def info_to_company(symbol: str, info: dict | None, revenue: list[float] | None 
         sector=info.get("sector") or "—",
         exchange=info.get("fullExchangeName") or info.get("exchange") or "—",
         currency=currency or "—",
+        financialCurrency=info.get("financialCurrency"),
         employees=_int(info.get("fullTimeEmployees")),
         desc=info.get("longBusinessSummary"),
         price=price if price is not None else 0.0,
@@ -205,3 +206,27 @@ def build_financials(symbol: str, income_df, balance_df, cashflow_df,
             ))
     return FinancialsBundle(ticker=symbol, currency=currency, years=years,
                             income=income, balance=balance, cashflow=cashflow)
+
+
+_FX_FIELDS = {
+    "income": ("revenue", "cogs", "grossProfit", "opex", "opInc", "netInc", "eps"),
+    "balance": ("cash", "assets", "debt", "liab", "equity"),
+    "cashflow": ("opCF", "capex", "fcf"),
+}
+
+
+def convert_financials(bundle: FinancialsBundle, rate: float, currency: str) -> FinancialsBundle:
+    """Multiplica todos los importes (incl. eps, por acción) por `rate` y fija la divisa
+    a `currency`. Para cuadrar los estados con la divisa de cotización (M12)."""
+    def conv(records, keys):
+        for rec in records:
+            for k in keys:
+                v = getattr(rec, k)
+                if v is not None:
+                    setattr(rec, k, round(v * rate, 4))
+
+    conv(bundle.income, _FX_FIELDS["income"])
+    conv(bundle.balance, _FX_FIELDS["balance"])
+    conv(bundle.cashflow, _FX_FIELDS["cashflow"])
+    bundle.currency = currency
+    return bundle

@@ -199,6 +199,11 @@ function ValuationBody({ c }) {
             </table>
           </div>
         </Card>
+        {c.financialCurrency && c.financialCurrency !== c.currency && (
+          <p style={{ fontSize: 11, color: "var(--text-2)" }}>
+            Ingresos convertidos de {c.financialCurrency} a {c.currency} (FX) para cuadrar con el precio.
+          </p>
+        )}
         <p style={{ fontSize: 11, color: "var(--text-3)" }}>
           Modelo ilustrativo sobre datos reales (yfinance). Un DCF vale lo que valen sus supuestos — usa la
           rejilla de sensibilidad para ver cuán frágil es el resultado ante WACC y crecimiento terminal.
@@ -287,7 +292,9 @@ function Financials({ ticker, go }) {
   return (
     <div className="fade-up" style={{ padding: 24, height: "100%", overflowY: "auto" }}>
       <PageHead title="Financial statements"
-        sub={c ? `${c.name} · historial anual (${bundle?.currency || "$"}B salvo EPS)` : "Estados financieros"}
+        sub={c ? `${c.name} · historial anual (${bundle?.currency || "$"}B salvo EPS)` +
+          (c.financialCurrency && bundle?.currency && c.financialCurrency !== bundle.currency
+            ? ` · convertido de ${c.financialCurrency}` : "") : "Estados financieros"}
         right={<CompanyPicker ticker={ticker} current={c} onPick={(t) => go("financials", t)} />} />
       {loading ? <Loading /> : error || !c || !bundle ? <ErrorBox error={error} /> :
         !bundle.years?.length ? <Empty label="Sin estados financieros disponibles" /> :

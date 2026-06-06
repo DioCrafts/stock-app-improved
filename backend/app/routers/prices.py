@@ -4,16 +4,17 @@
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Path
 
 from app.models.price import PriceSeries, Range
 from app.services import company_service
+from app.validation import TICKER_PATTERN
 
 router = APIRouter(prefix="/companies", tags=["prices"])
 
 
 @router.get("/{ticker}/prices", response_model=PriceSeries)
-def get_prices(ticker: str, range: Range = "3M") -> PriceSeries:
+def get_prices(ticker: str = Path(pattern=TICKER_PATTERN), range: Range = "3M") -> PriceSeries:
     try:
         return company_service.build_price_series(ticker.upper(), range)
     except Exception as err:  # noqa: BLE001

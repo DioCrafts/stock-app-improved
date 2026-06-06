@@ -28,7 +28,8 @@ class Company(BaseModel):
     name: str
     sector: str
     exchange: str
-    currency: str
+    currency: str                       # divisa de cotización (UK ya normalizada GBp→GBP)
+    financialCurrency: str | None = None  # divisa de los estados (puede diferir; FX para cuadrar)
     employees: int | None = None
     desc: str | None = None
     # Precio / mercado

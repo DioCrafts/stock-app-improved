@@ -23,25 +23,48 @@ def build_company(symbol: str) -> Company:
     return mappers.info_to_company(symbol, info, revenue, years)
 
 
+def _apply_fx(company: Company) -> Company:
+    """Convierte `revenue` (en financialCurrency) a la divisa de cotización para que
+    cuadre con price/marketCap en el DCF y los gráficos (M12). No-op si coinciden o
+    si el snapshot aún no tiene financialCurrency (se rellena al re-ingerir)."""
+    fc = company.financialCurrency
+    if fc and company.currency and fc != company.currency and company.revenue:
+        rate = yfc.get_fx_rate(fc, company.currency)
+        if rate:
+            company.revenue = [round(v * rate, 4) for v in company.revenue]
+    return company
+
+
 def get_company(symbol: str) -> Company:
-    """Snapshot si existe (status ok); si no, build en vivo."""
+    """Snapshot si existe (status ok); si no, build en vivo. Aplica FX a revenue."""
     conn = connect(settings.db_path)
     try:
         snap = queries.get_snapshot(conn, symbol)
     finally:
         conn.close()
     if snap and snap.get("status") == "ok" and snap.get("data"):
-        return Company.model_validate_json(snap["data"])
-    return build_company(symbol)
+        company = Company.model_validate_json(snap["data"])
+    else:
+        company = build_company(symbol)
+    return _apply_fx(company)
 
 
 def get_companies(symbols: list[str]) -> list[Company]:
+    """Batch: una sola conexión + una query para los que están en snapshot; fallback
+    en vivo solo para los que falten (evita N conexiones/N fetches, M6)."""
+    conn = connect(settings.db_path)
+    try:
+        found = queries.snapshots_by_symbols(conn, symbols)
+    finally:
+        conn.close()
     out: list[Company] = []
     for s in symbols:
+        blob = found.get(s)
         try:
-            out.append(get_company(s))
+            company = Company.model_validate_json(blob) if blob else build_company(s)
         except Exception:  # noqa: BLE001 — un ticker inválido no rompe la lista
             continue
+        out.append(_apply_fx(company))
     return out
 
 
