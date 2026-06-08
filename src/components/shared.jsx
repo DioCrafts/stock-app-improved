@@ -2,7 +2,8 @@
    shared.jsx — presentational primitives reused across screens
    (table cells, score widgets, page header, async states)
    ============================================================ */
-import { scoreColor } from "./ui.jsx";
+import { useTranslation } from "react-i18next";
+import { scoreColor } from "../format.js";
 
 /* ---------- table: sortable column header ---------- */
 function Th({ children, k, sort, setSort, align = "right", w }) {
@@ -68,18 +69,21 @@ function PageHead({ title, sub, right }) {
 }
 
 /* ---------- async states (loading / error / empty) ---------- */
-function Loading({ label = "Cargando…" }) {
-  return <div style={{ padding: 40, textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>{label}</div>;
+function Loading({ label }) {
+  const { t } = useTranslation();
+  return <div style={{ padding: 40, textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>{label ?? t("common.loading")}</div>;
 }
-function ErrorBox({ error, label = "No se pudieron cargar los datos" }) {
+function ErrorBox({ error, label }) {
+  const { t } = useTranslation();
   return (
     <div style={{ padding: 40, textAlign: "center", color: "var(--down)", fontSize: 13 }}>
-      {label}{error?.message ? ` — ${error.message}` : ""}
+      {label ?? t("common.error")}{error?.message ? ` — ${error.message}` : ""}
     </div>
   );
 }
-function Empty({ label = "Sin resultados" }) {
-  return <div style={{ padding: 40, textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>{label}</div>;
+function Empty({ label }) {
+  const { t } = useTranslation();
+  return <div style={{ padding: 40, textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>{label ?? t("common.empty")}</div>;
 }
 
 export { Th, Td, ScorePip, CompositeMini, PageHead, Loading, ErrorBox, Empty };

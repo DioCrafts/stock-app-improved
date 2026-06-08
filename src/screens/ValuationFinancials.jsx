@@ -3,18 +3,24 @@
    Valuation (interactive DCF) and multi-tab financial statements.
    ============================================================ */
 import { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { api, useAsync } from "../api.js";
-import { fmt, Icon, Mono, Sparkline, Pill, Card, Stat } from "../components/ui.jsx";
+import { Icon, Mono, Sparkline, Pill, Card, Stat } from "../components/ui.jsx";
+import { fmt } from "../format.js";
 import { PageHead, Loading, ErrorBox, Empty } from "../components/shared.jsx";
 
 /* ---------- shared: company picker (búsqueda server-side) ---------- */
 function CompanyPicker({ ticker, current, onPick }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [res, setRes] = useState([]);
   useEffect(() => {
-    if (!q.trim()) { setRes([]); return; }
-    const id = setTimeout(() => api.search(q.trim()).then(setRes).catch(() => setRes([])), 200);
+    const id = setTimeout(() => {
+      const query = q.trim();
+      if (!query) { setRes([]); return; }
+      api.search(query).then(setRes).catch(() => setRes([]));
+    }, 200);
     return () => clearTimeout(id);
   }, [q]);
   return (
@@ -32,7 +38,7 @@ function CompanyPicker({ ticker, current, onPick }) {
       {open && (
         <div style={{ position: "absolute", top: 50, left: 0, width: 260, background: "var(--surface)", border: "1px solid var(--border)",
           borderRadius: 8, boxShadow: "var(--shadow)", padding: 5, zIndex: 20, maxHeight: 340, overflowY: "auto" }}>
-          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar ticker o nombre…"
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("common.searchShort")}
             style={{ width: "100%", boxSizing: "border-box", padding: "6px 8px", marginBottom: 4, border: "1px solid var(--border)", borderRadius: 6, background: "var(--surface-2)", color: "var(--text)", fontSize: 12, outline: "none" }} />
           {res.map((x) => (
             <div key={x.ticker} onMouseDown={() => { onPick(x.ticker); setOpen(false); setQ(""); }}
@@ -53,18 +59,20 @@ function CompanyPicker({ ticker, current, onPick }) {
 
 /* =================== VALUATION (DCF) =================== */
 function Valuation({ ticker, go }) {
+  const { t } = useTranslation();
   const { loading, error, data: c } = useAsync(() => api.company(ticker), [ticker]);
   return (
     <div className="fade-up" style={{ padding: 24, height: "100%", overflowY: "auto" }}>
-      <PageHead title="Valuation — DCF"
-        sub="Discounted cash-flow model · adjust assumptions, fair value updates live"
-        right={<CompanyPicker ticker={ticker} current={c} onPick={(t) => go("valuation", t)} />} />
-      {loading ? <Loading /> : error || !c ? <ErrorBox error={error} label="Empresa no encontrada" /> : <ValuationBody key={c.ticker} c={c} />}
+      <PageHead title={t("valuation.title")}
+        sub={t("valuation.subtitle")}
+        right={<CompanyPicker ticker={ticker} current={c} onPick={(sym) => go("valuation", sym)} />} />
+      {loading ? <Loading /> : error || !c ? <ErrorBox error={error} label={t("company.notFound")} /> : <ValuationBody key={c.ticker} c={c} />}
     </div>
   );
 }
 
 function ValuationBody({ c }) {
+  const { t } = useTranslation();
   const mc = c.marketCap || 0;
   const shares = c.price ? mc / c.price : 0;
   const lastRev = c.revenue && c.revenue.length ? c.revenue[c.revenue.length - 1] : 0;
@@ -102,12 +110,15 @@ function ValuationBody({ c }) {
     const fair = shares ? equity / shares : 0;
     return { flows, pv, pvTv, ev, equity, fair, upside: c.price ? fair / c.price - 1 : 0 };
   };
-  const res = useMemo(() => calc(inp.wacc, inp.terminal), [inp]);
+  // calc se redefine cada render (cierra sobre inp/c); recalcular solo al cambiar inp es intencionado
+  const res = useMemo(() => calc(inp.wacc, inp.terminal), [inp]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!mc || !c.price) return <Empty label="DCF no disponible: faltan market cap o precio." />;
+  if (!mc || !c.price) return <Empty label={t("valuation.unavailable")} />;
 
   const upPct = res.upside * 100;
-  const verdict = upPct > 15 ? { t: "Undervalued", tone: "up" } : upPct < -15 ? { t: "Overvalued", tone: "down" } : { t: "Fairly valued", tone: "neutral" };
+  const verdict = upPct > 15 ? { label: t("valuation.verdict.under"), tone: "up" }
+    : upPct < -15 ? { label: t("valuation.verdict.over"), tone: "down" }
+    : { label: t("valuation.verdict.fair"), tone: "neutral" };
 
   const waccRange = [inp.wacc - 2, inp.wacc - 1, inp.wacc, inp.wacc + 1, inp.wacc + 2];
   const termRange = [Math.max(0.5, inp.terminal - 1), inp.terminal - 0.5, inp.terminal, inp.terminal + 0.5, inp.terminal + 1];
@@ -115,14 +126,14 @@ function ValuationBody({ c }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 16, alignItems: "start" }}>
       {/* inputs */}
-      <Card title="Assumptions" pad={18}>
+      <Card title={t("valuation.assumptions")} pad={18}>
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <DcfInput label="Starting FCF" unit="$B" v={inp.fcf} min={1} max={Math.round(baseFCF * 3) || 100} step={0.5} onChange={(v) => set("fcf", v)} hint="Trailing free cash flow" />
-          <DcfInput label="FCF growth (yrs 1–N)" unit="%" v={inp.growth} min={-5} max={40} step={0.5} onChange={(v) => set("growth", v)} hint="Annual growth during forecast" />
-          <DcfInput label="Forecast years" unit="" v={inp.years} min={3} max={10} step={1} onChange={(v) => set("years", v)} />
-          <DcfInput label="Terminal growth" unit="%" v={inp.terminal} min={0.5} max={4} step={0.1} onChange={(v) => set("terminal", v)} hint="Perpetual growth after forecast" />
-          <DcfInput label="Discount rate (WACC)" unit="%" v={inp.wacc} min={5} max={16} step={0.1} onChange={(v) => set("wacc", v)} hint="Required return / cost of capital" />
-          <DcfInput label="Net debt" unit="$B" v={inp.netDebt} min={-200} max={400} step={1} onChange={(v) => set("netDebt", v)} hint="Debt minus cash (negative = net cash)" />
+          <DcfInput label={t("valuation.input.fcfLabel")} unit="$B" v={inp.fcf} min={1} max={Math.round(baseFCF * 3) || 100} step={0.5} onChange={(v) => set("fcf", v)} hint={t("valuation.input.fcfHint")} />
+          <DcfInput label={t("valuation.input.growthLabel")} unit="%" v={inp.growth} min={-5} max={40} step={0.5} onChange={(v) => set("growth", v)} hint={t("valuation.input.growthHint")} />
+          <DcfInput label={t("valuation.input.yearsLabel")} unit="" v={inp.years} min={3} max={10} step={1} onChange={(v) => set("years", v)} />
+          <DcfInput label={t("valuation.input.terminalLabel")} unit="%" v={inp.terminal} min={0.5} max={4} step={0.1} onChange={(v) => set("terminal", v)} hint={t("valuation.input.terminalHint")} />
+          <DcfInput label={t("valuation.input.waccLabel")} unit="%" v={inp.wacc} min={5} max={16} step={0.1} onChange={(v) => set("wacc", v)} hint={t("valuation.input.waccHint")} />
+          <DcfInput label={t("valuation.input.netDebtLabel")} unit="$B" v={inp.netDebt} min={-200} max={400} step={1} onChange={(v) => set("netDebt", v)} hint={t("valuation.input.netDebtHint")} />
         </div>
       </Card>
 
@@ -131,17 +142,17 @@ function ValuationBody({ c }) {
         <Card pad={20}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
             <div>
-              <div style={{ fontSize: 11, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Intrinsic value / share</div>
+              <div style={{ fontSize: 11, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>{t("valuation.intrinsic")}</div>
               <div className="mono tnum" style={{ fontSize: 34, fontWeight: 600, color: `var(--${verdict.tone === "neutral" ? "text" : verdict.tone})` }}>{fmt.price(res.fair)}</div>
-              <div style={{ marginTop: 6 }}><Pill tone={verdict.tone === "neutral" ? "accent" : verdict.tone}>{verdict.t}</Pill></div>
+              <div style={{ marginTop: 6 }}><Pill tone={verdict.tone === "neutral" ? "accent" : verdict.tone}>{verdict.label}</Pill></div>
             </div>
             <div>
-              <div style={{ fontSize: 11, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Current price</div>
+              <div style={{ fontSize: 11, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>{t("valuation.currentPrice")}</div>
               <div className="mono tnum" style={{ fontSize: 34, fontWeight: 600, color: "var(--text-2)" }}>{fmt.price(c.price)}</div>
               <div style={{ fontSize: 11.5, color: "var(--text-3)", marginTop: 8 }}>{c.ticker} · {c.exchange}</div>
             </div>
             <div>
-              <div style={{ fontSize: 11, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Upside / downside</div>
+              <div style={{ fontSize: 11, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>{t("valuation.upside")}</div>
               <div className="mono tnum" style={{ fontSize: 34, fontWeight: 600, color: upPct >= 0 ? "var(--up)" : "var(--down)" }}>{fmt.pct(upPct, 1)}</div>
               {/* gauge */}
               <div style={{ marginTop: 12, height: 8, borderRadius: 4, background: "var(--border)", position: "relative", overflow: "hidden" }}>
@@ -156,12 +167,12 @@ function ValuationBody({ c }) {
         </Card>
 
         {/* bridge */}
-        <Card title="Enterprise → equity bridge" pad={18}>
+        <Card title={t("valuation.bridge.title")} pad={18}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
-            <Stat label="PV of forecast FCF" value={fmt.cap(res.pv)} />
-            <Stat label="PV of terminal value" value={fmt.cap(res.pvTv)} sub={res.ev ? `${Math.round(res.pvTv / res.ev * 100)}% of EV` : "—"} />
-            <Stat label="Enterprise value" value={fmt.cap(res.ev)} />
-            <Stat label="Equity value" value={fmt.cap(res.equity)} sub={`− ${fmt.cap(inp.netDebt)} net debt`} />
+            <Stat label={t("valuation.bridge.pvFcf")} value={fmt.cap(res.pv)} />
+            <Stat label={t("valuation.bridge.pvTv")} value={fmt.cap(res.pvTv)} sub={res.ev ? t("valuation.bridge.pctOfEv", { pct: Math.round(res.pvTv / res.ev * 100) }) : "—"} />
+            <Stat label={t("valuation.bridge.ev")} value={fmt.cap(res.ev)} />
+            <Stat label={t("valuation.bridge.equity")} value={fmt.cap(res.equity)} sub={t("valuation.bridge.netDebtSub", { cap: fmt.cap(inp.netDebt) })} />
           </div>
           <div style={{ marginTop: 18 }}>
             <FcfBars flows={res.flows} />
@@ -169,12 +180,12 @@ function ValuationBody({ c }) {
         </Card>
 
         {/* sensitivity */}
-        <Card title="Sensitivity — fair value ($/share)" pad={0}>
+        <Card title={t("valuation.sensitivity.title")} pad={0}>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
               <thead>
                 <tr>
-                  <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 10.5, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em" }}>WACC ↓ / term →</th>
+                  <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 10.5, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("valuation.sensitivity.header")}</th>
                   {termRange.map((g) => (
                     <th key={g} className="mono" style={{ padding: "10px 12px", textAlign: "right", fontSize: 11, color: "var(--text-2)" }}>{g.toFixed(1)}%</th>
                   ))}
@@ -212,12 +223,11 @@ function ValuationBody({ c }) {
         </Card>
         {c.financialCurrency && c.financialCurrency !== c.currency && (
           <p style={{ fontSize: 11, color: "var(--text-2)" }}>
-            Ingresos convertidos de {c.financialCurrency} a {c.currency} (FX) para cuadrar con el precio.
+            {t("valuation.fxNote", { from: c.financialCurrency, to: c.currency })}
           </p>
         )}
         <p style={{ fontSize: 11, color: "var(--text-3)" }}>
-          Modelo ilustrativo sobre datos reales (yfinance). Un DCF vale lo que valen sus supuestos — usa la
-          rejilla de sensibilidad para ver cuán frágil es el resultado ante WACC y crecimiento terminal.
+          {t("valuation.disclaimer")}
         </p>
       </div>
     </div>
@@ -244,6 +254,7 @@ function DcfInput({ label, unit, v, min, max, step, onChange, hint }) {
 }
 
 function FcfBars({ flows }) {
+  const { t } = useTranslation();
   const max = Math.max(1e-9, ...flows.map((f) => f.fcf));  // evita división por cero (L15)
   return (
     <div>
@@ -252,47 +263,49 @@ function FcfBars({ flows }) {
           <div key={f.t} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end", gap: 5 }}>
             <span className="mono tnum" style={{ fontSize: 10, color: "var(--text-3)" }}>{f.pv.toFixed(0)}</span>
             <div style={{ width: "100%", maxWidth: 38, position: "relative", height: (f.fcf / max) * 80, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-              <div style={{ height: (f.pv / f.fcf) * 100 + "%", background: "var(--accent)", borderRadius: "3px 3px 0 0" }} title="Present value" />
-              <div style={{ position: "absolute", inset: 0, border: "1px dashed var(--accent)", borderRadius: "3px 3px 0 0", opacity: 0.4 }} title="Undiscounted FCF" />
+              <div style={{ height: (f.pv / f.fcf) * 100 + "%", background: "var(--accent)", borderRadius: "3px 3px 0 0" }} title={t("valuation.fcfBars.pv")} />
+              <div style={{ position: "absolute", inset: 0, border: "1px dashed var(--accent)", borderRadius: "3px 3px 0 0", opacity: 0.4 }} title={t("valuation.fcfBars.undiscounted")} />
             </div>
             <span className="mono" style={{ fontSize: 10, color: "var(--text-3)" }}>Y{f.t}</span>
           </div>
         ))}
       </div>
       <div style={{ display: "flex", gap: 16, marginTop: 10, fontSize: 11, color: "var(--text-3)" }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, background: "var(--accent)", borderRadius: 2 }} /> Present value</span>
-        <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, border: "1px dashed var(--accent)", borderRadius: 2 }} /> Undiscounted FCF</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, background: "var(--accent)", borderRadius: 2 }} /> {t("valuation.fcfBars.pv")}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, border: "1px dashed var(--accent)", borderRadius: 2 }} /> {t("valuation.fcfBars.undiscounted")}</span>
       </div>
     </div>
   );
 }
 
 /* =================== FINANCIALS =================== */
+// labels visibles vía i18n: pestañas → financials.tab.<key>; filas → financials.row.<row.k>
 const STATEMENTS = {
-  income: { label: "Income statement", rows: [
-    { k: "revenue", label: "Revenue", bold: true },
-    { k: "cogs", label: "Cost of revenue", neg: true },
-    { k: "grossProfit", label: "Gross profit", bold: true },
-    { k: "opex", label: "Operating expenses", neg: true },
-    { k: "opInc", label: "Operating income", bold: true },
-    { k: "netInc", label: "Net income", bold: true, accent: true },
-    { k: "eps", label: "Diluted EPS", money: true },
+  income: { rows: [
+    { k: "revenue", bold: true },
+    { k: "cogs", neg: true },
+    { k: "grossProfit", bold: true },
+    { k: "opex", neg: true },
+    { k: "opInc", bold: true },
+    { k: "netInc", bold: true, accent: true },
+    { k: "eps", money: true },
   ]},
-  balance: { label: "Balance sheet", rows: [
-    { k: "cash", label: "Cash & equivalents" },
-    { k: "assets", label: "Total assets", bold: true },
-    { k: "debt", label: "Total debt", neg: false },
-    { k: "liab", label: "Total liabilities", bold: true },
-    { k: "equity", label: "Shareholders' equity", bold: true, accent: true },
+  balance: { rows: [
+    { k: "cash" },
+    { k: "assets", bold: true },
+    { k: "debt", neg: false },
+    { k: "liab", bold: true },
+    { k: "equity", bold: true, accent: true },
   ]},
-  cashflow: { label: "Cash flow", rows: [
-    { k: "opCF", label: "Operating cash flow", bold: true },
-    { k: "capex", label: "Capital expenditure", neg: true },
-    { k: "fcf", label: "Free cash flow", bold: true, accent: true },
+  cashflow: { rows: [
+    { k: "opCF", bold: true },
+    { k: "capex", neg: true },
+    { k: "fcf", bold: true, accent: true },
   ]},
 };
 
 function Financials({ ticker, go }) {
+  const { t } = useTranslation();
   const companyState = useAsync(() => api.company(ticker), [ticker]);
   const finState = useAsync(() => api.financials(ticker), [ticker]);
   const c = companyState.data;
@@ -302,19 +315,20 @@ function Financials({ ticker, go }) {
 
   return (
     <div className="fade-up" style={{ padding: 24, height: "100%", overflowY: "auto" }}>
-      <PageHead title="Financial statements"
-        sub={c ? `${c.name} · historial anual (${bundle?.currency || "$"}B salvo EPS)` +
+      <PageHead title={t("financials.title")}
+        sub={c ? t("financials.subtitle", { name: c.name, cur: bundle?.currency || "$" }) +
           (c.financialCurrency && bundle?.currency && c.financialCurrency !== bundle.currency
-            ? ` · convertido de ${c.financialCurrency}` : "") : "Estados financieros"}
-        right={<CompanyPicker ticker={ticker} current={c} onPick={(t) => go("financials", t)} />} />
+            ? t("financials.convertedFrom", { from: c.financialCurrency }) : "") : t("financials.subFallback")}
+        right={<CompanyPicker ticker={ticker} current={c} onPick={(sym) => go("financials", sym)} />} />
       {loading ? <Loading /> : error || !c || !bundle ? <ErrorBox error={error} /> :
-        !bundle.years?.length ? <Empty label="Sin estados financieros disponibles" /> :
+        !bundle.years?.length ? <Empty label={t("financials.noStatements")} /> :
         <FinancialsBody key={ticker} c={c} bundle={bundle} />}
     </div>
   );
 }
 
 function FinancialsBody({ c, bundle }) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState("income");
   const data = useMemo(() => {
     const byYear = (arr) => { const m = {}; (arr || []).forEach((r) => { m[r.year] = r; }); return m; };
@@ -348,13 +362,13 @@ function FinancialsBody({ c, bundle }) {
   return (
     <>
       <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
-        {Object.entries(STATEMENTS).map(([k, v]) => (
+        {Object.keys(STATEMENTS).map((k) => (
           <button key={k} onClick={() => setTab(k)} style={{
             padding: "8px 16px", borderRadius: "var(--r-md)", fontSize: 13, fontWeight: 600,
             background: tab === k ? "var(--surface)" : "transparent",
             color: tab === k ? "var(--text)" : "var(--text-3)",
             border: "1px solid " + (tab === k ? "var(--border)" : "transparent"),
-            boxShadow: tab === k ? "var(--shadow)" : "none" }}>{v.label}</button>
+            boxShadow: tab === k ? "var(--shadow)" : "none" }}>{t("financials.tab." + k)}</button>
         ))}
       </div>
 
@@ -363,12 +377,12 @@ function FinancialsBody({ c, bundle }) {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
-                <th style={{ textAlign: "left", padding: "12px 16px", fontSize: 10.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-3)", position: "sticky", left: 0, background: "var(--surface)", borderBottom: "1px solid var(--border)", minWidth: 200 }}>Line item</th>
+                <th style={{ textAlign: "left", padding: "12px 16px", fontSize: 10.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-3)", position: "sticky", left: 0, background: "var(--surface)", borderBottom: "1px solid var(--border)", minWidth: 200 }}>{t("financials.col.lineItem")}</th>
                 {data.map((d) => (
                   <th key={d.year} className="mono" style={{ textAlign: "right", padding: "12px 16px", fontSize: 12, fontWeight: 600, color: d.year === lastYear ? "var(--text)" : "var(--text-2)", borderBottom: "1px solid var(--border)" }}>{d.year}</th>
                 ))}
-                <th style={{ textAlign: "right", padding: "12px 16px", fontSize: 10.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-3)", borderBottom: "1px solid var(--border)" }}>Trend</th>
-                <th style={{ textAlign: "right", padding: "12px 16px", fontSize: 10.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-3)", borderBottom: "1px solid var(--border)" }}>CAGR</th>
+                <th style={{ textAlign: "right", padding: "12px 16px", fontSize: 10.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-3)", borderBottom: "1px solid var(--border)" }}>{t("financials.col.trend")}</th>
+                <th style={{ textAlign: "right", padding: "12px 16px", fontSize: 10.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-3)", borderBottom: "1px solid var(--border)" }}>{t("financials.col.cagr")}</th>
               </tr>
             </thead>
             <tbody>
@@ -378,7 +392,7 @@ function FinancialsBody({ c, bundle }) {
                 return (
                   <tr key={row.k} style={{ borderBottom: "1px solid var(--border)", background: row.accent ? "var(--accent-bg)" : "transparent" }}>
                     <td style={{ padding: "11px 16px", position: "sticky", left: 0, background: "var(--surface)",
-                      fontWeight: row.bold ? 600 : 400, color: row.bold ? "var(--text)" : "var(--text-2)", fontSize: 12.5 }}>{row.label}</td>
+                      fontWeight: row.bold ? 600 : 400, color: row.bold ? "var(--text)" : "var(--text-2)", fontSize: 12.5 }}>{t("financials.row." + row.k)}</td>
                     {data.map((d) => {
                       const v = d[row.k];
                       const txt = v == null ? "—" : (row.money ? "$" + v.toFixed(2) : (row.neg ? "(" + Math.abs(v).toFixed(1) + ")" : v.toFixed(1)));
@@ -400,22 +414,22 @@ function FinancialsBody({ c, bundle }) {
       {/* margin / ratio strip */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginTop: 16 }}>
         {tab === "income" && [
-          ["Gross margin", c.grossMargin ? fmt.pctPlain(c.grossMargin) : "—"],
-          ["Operating margin", fmt.pctPlain(c.opMargin)],
-          ["Net margin", fmt.pctPlain(c.netMargin)],
-          ["Revenue CAGR", fmt.pct(cagr("revenue"), 1)],
+          [t("metric.grossMargin"), c.grossMargin ? fmt.pctPlain(c.grossMargin) : "—"],
+          [t("metric.operatingMargin"), fmt.pctPlain(c.opMargin)],
+          [t("metric.netMargin"), fmt.pctPlain(c.netMargin)],
+          [t("financials.ministat.revenueCagr"), fmt.pct(cagr("revenue"), 1)],
         ].map(([l, v]) => <MiniStat key={l} label={l} value={v} />)}
         {tab === "balance" && [
-          ["Debt / equity", fmt.num(c.debtEq, 2)],
-          ["Current ratio", c.currentRatio ? fmt.num(c.currentRatio, 2) : "—"],
-          ["ROE", fmt.pctPlain(c.roe)],
-          ["Equity CAGR", fmt.pct(cagr("equity"), 1)],
+          [t("metric.debtEq"), fmt.num(c.debtEq, 2)],
+          [t("metric.currentRatio"), c.currentRatio ? fmt.num(c.currentRatio, 2) : "—"],
+          [t("metric.roe"), fmt.pctPlain(c.roe)],
+          [t("financials.ministat.equityCagr"), fmt.pct(cagr("equity"), 1)],
         ].map(([l, v]) => <MiniStat key={l} label={l} value={v} />)}
         {tab === "cashflow" && [
-          ["FCF margin", fcfRev ? fmt.pctPlain(fcfRev[0] / fcfRev[1] * 100) : "—"],
-          ["FCF yield", c.fcfYield ? fmt.pctPlain(c.fcfYield) : "—"],
-          ["Capex / rev", capexRev ? fmt.pctPlain(Math.abs(capexRev[0]) / capexRev[1] * 100) : "—"],
-          ["FCF CAGR", fmt.pct(cagr("fcf"), 1)],
+          [t("financials.ministat.fcfMargin"), fcfRev ? fmt.pctPlain(fcfRev[0] / fcfRev[1] * 100) : "—"],
+          [t("metric.fcfYield"), c.fcfYield ? fmt.pctPlain(c.fcfYield) : "—"],
+          [t("financials.ministat.capexRev"), capexRev ? fmt.pctPlain(Math.abs(capexRev[0]) / capexRev[1] * 100) : "—"],
+          [t("financials.ministat.fcfCagr"), fmt.pct(cagr("fcf"), 1)],
         ].map(([l, v]) => <MiniStat key={l} label={l} value={v} />)}
       </div>
     </>

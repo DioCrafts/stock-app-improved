@@ -17,10 +17,22 @@ _RANGE_TO_PERIOD = {"1M": "1mo", "3M": "3mo", "6M": "6mo", "1Y": "1y"}
 
 
 def build_company(symbol: str) -> Company:
-    """Construye una `Company` real desde yfinance (info + ingresos)."""
+    """Construye una `Company` real desde yfinance (info + ingresos + sparkline corto)."""
     info = yfc.get_info(symbol)
     years, revenue = mappers.revenue_and_years(yfc.get_income_stmt(symbol))
-    return mappers.info_to_company(symbol, info, revenue, years)
+    company = mappers.info_to_company(symbol, info, revenue, years)
+    company.spark = _spark_series(symbol, info.get("currency"))
+    return company
+
+
+def _spark_series(symbol: str, raw_currency: str | None) -> list[float]:
+    """Serie corta (~1 mes) de cierres para el mini-sparkline del Watchlist (campo `spark`).
+    Falla en silencio → [] (un sparkline ausente nunca debe romper el build/snapshot)."""
+    try:
+        df = yfc.get_history(symbol, period="1mo", interval="1d")
+        return mappers.history_to_spark(df, raw_currency)
+    except Exception:  # noqa: BLE001
+        return []
 
 
 def _apply_fx(company: Company) -> Company:

@@ -1,0 +1,267 @@
+{
+  "common": {
+    "loading": "Cargando…",
+    "error": "No se pudieron cargar los datos",
+    "empty": "Sin resultados",
+    "none": "Ninguno",
+    "any": "libre",
+    "add": "Añadir",
+    "searchShort": "Buscar ticker o nombre…"
+  },
+  "shell": {
+    "tagline": "ANÁLISIS BURSÁTIL",
+    "search": "Buscar ticker o empresa…",
+    "watchlistHeading": "Seguimiento",
+    "marketOpen": "Mercado abierto",
+    "marketClosed": "Mercado cerrado",
+    "themeDark": "Oscuro",
+    "themeLight": "Claro"
+  },
+  "nav": {
+    "watchlist": "Seguimiento",
+    "screener": "Screener",
+    "compare": "Comparar",
+    "valuation": "Valoración",
+    "financials": "Finanzas"
+  },
+  "score": {
+    "strong": "Fuerte",
+    "good": "Bueno",
+    "fair": "Medio",
+    "weak": "Débil",
+    "poor": "Pobre"
+  },
+  "pillar": {
+    "value": "Valor",
+    "growth": "Crecimiento",
+    "health": "Salud",
+    "momentum": "Momentum",
+    "composite": "Compuesto"
+  },
+  "cols": {
+    "company": "Empresa",
+    "price": "Precio",
+    "chg": "Var.",
+    "thirtyD": "30d",
+    "cap": "Capit.",
+    "pe": "PER",
+    "peg": "PEG",
+    "div": "Div.",
+    "roe": "ROE",
+    "rev": "Crec.",
+    "value": "Valor",
+    "growth": "Crecim.",
+    "score": "Nota"
+  },
+  "metric": {
+    "price": "Precio",
+    "chgToday": "Var. hoy",
+    "marketCap": "Cap. mercado",
+    "beta": "Beta",
+    "peTtm": "PER (ttm)",
+    "fwdPe": "PER adelantado",
+    "peg": "PEG",
+    "pb": "P/VC",
+    "ps": "P/Ventas",
+    "evEbitda": "EV/EBITDA",
+    "fcfYield": "Rent. FCF",
+    "divYield": "Rent. div.",
+    "roe": "ROE",
+    "roic": "ROIC",
+    "grossMargin": "Margen bruto",
+    "opMarginShort": "Margen oper.",
+    "operatingMargin": "Margen operativo",
+    "netMargin": "Margen neto",
+    "revGrowth": "Crec. ingresos",
+    "revGrowthShort": "Crec. ingr.",
+    "epsGrowth": "Crec. BPA",
+    "debtEq": "Deuda / patrim.",
+    "currentRatio": "Ratio corriente",
+    "employees": "Empleados",
+    "prevClose": "Cierre ant."
+  },
+  "watchlist": {
+    "title": "Seguimiento",
+    "subtitle": "{{count}} empresas en seguimiento · NYSE / NASDAQ / TSX / LSE",
+    "empty": "Tu watchlist está vacía. Añade empresas desde el Screener o la búsqueda.",
+    "avgScore": "Nota compuesta media",
+    "advancing": "Suben hoy",
+    "declining": "{{count}} bajan",
+    "topMover": "Mayor subida",
+    "laggard": "Mayor caída",
+    "footer": "Haz clic en una fila para abrir la empresa. Puntuaciones: Valor 35% · Crecimiento 30% · Salud 20% · Momentum 15% (percentiles por mercado)."
+  },
+  "company": {
+    "notFound": "Empresa no encontrada",
+    "noPriceData": "Sin datos de precio",
+    "noData": "Sin datos",
+    "today": "hoy",
+    "actions": {
+      "dcf": "DCF",
+      "financials": "Finanzas",
+      "compare": "Comparar",
+      "watch": "Seguir",
+      "watching": "Siguiendo"
+    },
+    "group": {
+      "valuation": "Valoración",
+      "profitability": "Rentabilidad",
+      "growthRisk": "Crecimiento y riesgo"
+    },
+    "card": {
+      "price": "Precio",
+      "composite": "Nota compuesta",
+      "revenue": "Ingresos ($B)",
+      "snapshot": "Resumen",
+      "about": "Acerca de"
+    },
+    "composite": {
+      "overall": "en conjunto.",
+      "blend": "Mezcla ponderada de valor, crecimiento, salud del balance y momentum de precio."
+    },
+    "scoreSub": {
+      "value": "ratios",
+      "growth": "ingr., BPA",
+      "health": "balance",
+      "momentum": "precio"
+    },
+    "snapshot": {
+      "range52": "Rango 52 sem.",
+      "prevClose": "Cierre ant.",
+      "marketCap": "Cap. mercado",
+      "divYield": "Rentab. dividendo"
+    }
+  },
+  "screener": {
+    "title": "Screener",
+    "matches": "{{count}} coincidencias",
+    "showingFirst": " · mostrando las primeras {{count}}",
+    "activeFilters_one": " · {{count}} filtro activo",
+    "activeFilters_other": " · {{count}} filtros activos",
+    "noFilters": " · sin filtros",
+    "resetAll": "Limpiar todo",
+    "factorPresets": "Presets de factores",
+    "filtersHeading": "Filtros",
+    "noMatch": "Ninguna empresa cumple estos filtros. Relaja alguna restricción.",
+    "preset": {
+      "allStocks": "Todas",
+      "deepValue": "Valor profundo",
+      "garp": "GARP",
+      "qualityGrowth": "Crecimiento de calidad",
+      "dividend": "Dividendo",
+      "highMomentum": "Alto momentum",
+      "custom": "Personalizado"
+    },
+    "filter": {
+      "capMin": "Cap. mercado ≥",
+      "peMax": "PER ≤",
+      "pegMax": "PEG ≤",
+      "pbMax": "P/VC ≤",
+      "divMin": "Rent. div. ≥",
+      "roeMin": "ROE ≥",
+      "growthRevMin": "Crec. ingr. ≥",
+      "valueMin": "Nota valor ≥",
+      "growthMin": "Nota crecim. ≥",
+      "healthMin": "Nota salud ≥",
+      "momentumMin": "Momentum ≥"
+    }
+  },
+  "compare": {
+    "title": "Comparar",
+    "subtitle": "{{count}} empresas en paralelo · mejor valor por métrica resaltado",
+    "metric": "Métrica",
+    "scores": "Puntuaciones",
+    "group": {
+      "price": "Precio",
+      "valuation": "Valoración",
+      "profitabilityGrowth": "Rentabilidad y crecimiento"
+    }
+  },
+  "valuation": {
+    "title": "Valoración — DCF",
+    "subtitle": "Modelo de flujos de caja descontados · ajusta los supuestos, el valor justo se actualiza en vivo",
+    "unavailable": "DCF no disponible: faltan capitalización o precio.",
+    "assumptions": "Supuestos",
+    "intrinsic": "Valor intrínseco / acción",
+    "currentPrice": "Precio actual",
+    "upside": "Potencial / riesgo",
+    "verdict": {
+      "under": "Infravalorada",
+      "over": "Sobrevalorada",
+      "fair": "En precio"
+    },
+    "input": {
+      "fcfLabel": "FCF inicial",
+      "fcfHint": "Flujo de caja libre TTM",
+      "growthLabel": "Crecim. FCF (años 1–N)",
+      "growthHint": "Crecimiento anual durante la previsión",
+      "yearsLabel": "Años de previsión",
+      "terminalLabel": "Crecim. terminal",
+      "terminalHint": "Crecimiento perpetuo tras la previsión",
+      "waccLabel": "Tasa de descuento (WACC)",
+      "waccHint": "Retorno exigido / coste de capital",
+      "netDebtLabel": "Deuda neta",
+      "netDebtHint": "Deuda menos caja (negativo = caja neta)"
+    },
+    "bridge": {
+      "title": "Puente empresa → fondos propios",
+      "pvFcf": "VP del FCF previsto",
+      "pvTv": "VP del valor terminal",
+      "pctOfEv": "{{pct}}% del EV",
+      "ev": "Valor de empresa (EV)",
+      "equity": "Valor de fondos propios",
+      "netDebtSub": "− {{cap}} deuda neta"
+    },
+    "fcfBars": {
+      "pv": "Valor presente",
+      "undiscounted": "FCF sin descontar"
+    },
+    "sensitivity": {
+      "title": "Sensibilidad — valor justo ($/acción)",
+      "header": "WACC ↓ / term →"
+    },
+    "fxNote": "Ingresos convertidos de {{from}} a {{to}} (FX) para cuadrar con el precio.",
+    "disclaimer": "Modelo ilustrativo sobre datos reales (yfinance). Un DCF vale lo que valen sus supuestos — usa la rejilla de sensibilidad para ver cuán frágil es el resultado ante el WACC y el crecimiento terminal."
+  },
+  "financials": {
+    "title": "Estados financieros",
+    "subtitle": "{{name}} · historial anual ({{cur}}B salvo BPA)",
+    "convertedFrom": " · convertido de {{from}}",
+    "subFallback": "Estados financieros",
+    "noStatements": "Sin estados financieros disponibles",
+    "tab": {
+      "income": "Cuenta de resultados",
+      "balance": "Balance",
+      "cashflow": "Flujo de caja"
+    },
+    "col": {
+      "lineItem": "Partida",
+      "trend": "Tendencia",
+      "cagr": "TACC"
+    },
+    "row": {
+      "revenue": "Ingresos",
+      "cogs": "Coste de ventas",
+      "grossProfit": "Beneficio bruto",
+      "opex": "Gastos operativos",
+      "opInc": "Resultado operativo",
+      "netInc": "Beneficio neto",
+      "eps": "BPA diluido",
+      "cash": "Caja y equivalentes",
+      "assets": "Activos totales",
+      "debt": "Deuda total",
+      "liab": "Pasivos totales",
+      "equity": "Patrimonio neto",
+      "opCF": "Flujo de caja operativo",
+      "capex": "Inversión (capex)",
+      "fcf": "Flujo de caja libre"
+    },
+    "ministat": {
+      "revenueCagr": "TACC ingresos",
+      "equityCagr": "TACC patrimonio",
+      "fcfMargin": "Margen FCF",
+      "capexRev": "Capex / ingr.",
+      "fcfCagr": "TACC FCF"
+    }
+  }
+}

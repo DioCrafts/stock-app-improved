@@ -144,6 +144,23 @@ def history_to_price_series(symbol: str, range_: str, df, currency: str | None =
     return PriceSeries(ticker=symbol, range=range_, currency=out_currency, points=points)
 
 
+def history_to_spark(df, currency: str | None = None) -> list[float]:
+    """`Ticker.history` → lista corta de cierres (oldest→newest) para el mini-sparkline
+    del listado. UK (GBp): peniques → libras (÷100), igual que el resto de precios.
+    Falla en silencio → [] (datos irregulares no deben romper el snapshot)."""
+    gbp = currency == "GBp"
+    out: list[float] = []
+    try:
+        if df is not None and not getattr(df, "empty", True) and "Close" in df.columns:
+            for close in df["Close"]:
+                c = _num(close)
+                if c is not None:
+                    out.append(round(c / 100 if gbp else c, 4))
+    except Exception:  # noqa: BLE001 — datos irregulares → serie vacía
+        return []
+    return out
+
+
 def _columns_by_year(df) -> dict[int, object]:
     """{año → columna} de un statement. Columnas newest-first → conserva la más reciente por año."""
     out: dict[int, object] = {}

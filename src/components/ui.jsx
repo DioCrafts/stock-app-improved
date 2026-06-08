@@ -1,36 +1,9 @@
 /* ============================================================
    ui.jsx — shared primitives: formatters, icons, charts, scores
    ============================================================ */
-import { useState, useRef, useEffect, useMemo } from "react";
-
-/* ---------------- formatters ---------------- */
-const fmt = {
-  price: (n) => n == null ? "—" : "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-  num: (n, d = 2) => n == null ? "—" : n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }),
-  // n in billions
-  cap: (n) => {
-    if (n == null) return "—";
-    if (n >= 1000) return "$" + (n / 1000).toFixed(2) + "T";
-    return "$" + n.toFixed(n >= 100 ? 0 : 1) + "B";
-  },
-  mult: (n) => n == null ? "—" : n.toFixed(1) + "×",
-  pct: (n, d = 2) => n == null ? "—" : (n > 0 ? "+" : "") + n.toFixed(d) + "%",
-  pctPlain: (n, d = 1) => n == null ? "—" : n.toFixed(d) + "%",
-  signed: (n, d = 2) => n == null ? "—" : (n > 0 ? "+" : "") + n.toFixed(d),
-};
-
-/* ---------------- score color ramp ---------------- */
-function scoreColor(s) {
-  const hue = 25 + 1.3 * Math.max(0, Math.min(100, s)); // 25(red) → 155(green)
-  return `oklch(0.70 0.155 ${hue})`;
-}
-function scoreLabel(s) {
-  if (s >= 80) return "Strong";
-  if (s >= 65) return "Good";
-  if (s >= 45) return "Fair";
-  if (s >= 30) return "Weak";
-  return "Poor";
-}
+import { useState, useRef, useEffect, useId } from "react";
+import { useTranslation } from "react-i18next";
+import { fmt, scoreColor, scoreLabel } from "../format.js";
 
 /* ---------------- icons (simple stroke) ---------------- */
 const ICONS = {
@@ -53,6 +26,7 @@ const ICONS = {
   x: "M5 5l10 10M15 5L5 15",
   bolt: "M11 2L4 11h5l-1 7 7-9h-5z",
   download: "M10 3v9M10 12l4-4M10 12L6 8M4 16h12",
+  globe: "M10 3a7 7 0 100 14 7 7 0 000-14M3 10h14M10 3c2.6 2 2.6 12 0 14M10 3c-2.6 2-2.6 12 0 14",
 };
 function Icon({ name, size = 18, stroke = 1.6, fill = false, style }) {
   const d = ICONS[name] || "";
@@ -99,6 +73,7 @@ function Delta({ value, pct, suffix = "%", arrow = true, size }) {
 
 /* ---------------- Sparkline ---------------- */
 function Sparkline({ data, w = 88, h = 28, color, strokeW = 1.5, fillArea = false }) {
+  const id = "sp" + useId().replace(/:/g, "");  // hook antes de cualquier return (rules-of-hooks)
   if (!data || data.length < 2) return null;
   const min = Math.min(...data), max = Math.max(...data);
   const rng = max - min || 1;
@@ -109,7 +84,6 @@ function Sparkline({ data, w = 88, h = 28, color, strokeW = 1.5, fillArea = fals
   const line = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
   const up = data[data.length - 1] >= data[0];
   const c = color || (up ? "var(--up)" : "var(--down)");
-  const id = useMemo(() => "sp" + Math.random().toString(36).slice(2, 8), []);
   return (
     <svg width={w} height={h} style={{ display: "block", overflow: "visible" }}>
       {fillArea && (
@@ -147,7 +121,7 @@ function AreaChart({ data, h = 260, color, baseline }) {
   const line = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
   const up = data[data.length - 1] >= data[0];
   const c = color || (up ? "var(--up)" : "var(--down)");
-  const id = useMemo(() => "ac" + Math.random().toString(36).slice(2, 8), []);
+  const id = "ac" + useId().replace(/:/g, "");
   const onMove = (e) => {
     const r = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - r.left;
@@ -192,6 +166,7 @@ function AreaChart({ data, h = 260, color, baseline }) {
 
 /* ---------------- ScoreRing (composite) ---------------- */
 function ScoreRing({ score, size = 76, stroke = 7, showLabel = true }) {
+  const { t } = useTranslation();
   if (score == null) return (
     <div className="mono" style={{
       width: size, height: size, flex: "none", display: "grid", placeItems: "center",
@@ -218,7 +193,7 @@ function ScoreRing({ score, size = 76, stroke = 7, showLabel = true }) {
       }}>
         <div>
           <div className="mono tnum" style={{ fontSize: size * 0.3, fontWeight: 600, color: "var(--text)" }}>{score}</div>
-          {showLabel && <div style={{ fontSize: size * 0.12, color: c, fontWeight: 600, marginTop: 2 }}>{scoreLabel(score)}</div>}
+          {showLabel && <div style={{ fontSize: size * 0.12, color: c, fontWeight: 600, marginTop: 2 }}>{t("score." + scoreLabel(score))}</div>}
         </div>
       </div>
     </div>
@@ -296,6 +271,6 @@ function Stat({ label, value, sub, tone }) {
 }
 
 export {
-  fmt, scoreColor, scoreLabel, Icon, Mono, Delta, Sparkline, AreaChart,
+  Icon, Mono, Delta, Sparkline, AreaChart,
   ScoreRing, ScoreBar, Pill, Card, Stat,
 };

@@ -2,8 +2,10 @@
    app.jsx — shell: sidebar nav, global search, theme, routing
    ============================================================ */
 import { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { api, useAsync } from "./api.js";
-import { Icon, Mono, Delta, fmt } from "./components/ui.jsx";
+import { Icon, Mono, Delta } from "./components/ui.jsx";
+import { fmt } from "./format.js";
 import { Watchlist, CompanyOverview } from "./screens/WatchlistOverview.jsx";
 import { CompositeMini } from "./components/shared.jsx";
 import { Screener, Compare } from "./screens/ScreenerCompare.jsx";
@@ -13,33 +15,36 @@ function useLocalState(key, init) {
   const [v, setV] = useState(() => {
     try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : init; } catch { return init; }
   });
-  useEffect(() => { try { localStorage.setItem(key, JSON.stringify(v)); } catch {} }, [key, v]);
+  useEffect(() => { try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* almacenamiento no disponible */ } }, [key, v]);
   return [v, setV];
 }
 
 // Watchlist inicial (semilla de localStorage); el estado de usuario vive en el navegador.
 const DEFAULT_WATCH = ["NVDA", "AAPL", "MSFT", "GOOGL", "META", "AMZN", "JPM", "V"];
 
+// label se resuelve con i18n en render: t("nav." + id)
 const NAV = [
-  { id: "watchlist", icon: "watchlist", label: "Watchlist" },
-  { id: "screener", icon: "screener", label: "Screener" },
-  { id: "compare", icon: "compare", label: "Compare" },
-  { id: "valuation", icon: "valuation", label: "Valuation" },
-  { id: "financials", icon: "financials", label: "Financials" },
+  { id: "watchlist", icon: "watchlist" },
+  { id: "screener", icon: "screener" },
+  { id: "compare", icon: "compare" },
+  { id: "valuation", icon: "valuation" },
+  { id: "financials", icon: "financials" },
 ];
 
 function GlobalSearch({ go }) {
+  const { t } = useTranslation();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [hi, setHi] = useState(0);
   const [results, setResults] = useState([]);
   const ref = useRef(null);
 
-  // búsqueda server-side con debounce
+  // búsqueda server-side con debounce (el setState vive dentro del timeout, no en el cuerpo del efecto)
   useEffect(() => {
-    if (!q.trim()) { setResults([]); return; }
     const id = setTimeout(() => {
-      api.search(q.trim()).then((r) => setResults(r)).catch(() => setResults([]));
+      const query = q.trim();
+      if (!query) { setResults([]); return; }
+      api.search(query).then((r) => setResults(r)).catch(() => setResults([]));
     }, 200);
     return () => clearTimeout(id);
   }, [q]);
@@ -67,7 +72,7 @@ function GlobalSearch({ go }) {
             if (e.key === "Enter" && results[hi]) pick(results[hi]);
             if (e.key === "Escape") { setOpen(false); ref.current?.blur(); }
           }}
-          placeholder="Search ticker or company…"
+          placeholder={t("shell.search")}
           style={{ flex: 1, border: "none", outline: "none", background: "transparent", color: "var(--text)", fontSize: 13 }} />
         <kbd className="mono" style={{ fontSize: 10, color: "var(--text-3)", border: "1px solid var(--border)", borderRadius: 4, padding: "1px 5px" }}>⌘K</kbd>
       </div>
@@ -94,6 +99,7 @@ function GlobalSearch({ go }) {
 }
 
 function App() {
+  const { t } = useTranslation();
   const [route, setRoute] = useLocalState("term.route", { screen: "watchlist", ticker: "NVDA" });
   const [theme, setTheme] = useLocalState("term.theme", "dark");
   const [watch, setWatch] = useLocalState("term.watch", DEFAULT_WATCH);
@@ -142,7 +148,7 @@ function App() {
           </div>
           <div>
             <div style={{ fontWeight: 700, fontSize: 14, letterSpacing: "-0.01em" }}>Terminal</div>
-            <div style={{ fontSize: 10, color: "var(--text-3)", letterSpacing: "0.04em" }}>EQUITY RESEARCH</div>
+            <div style={{ fontSize: 10, color: "var(--text-3)", letterSpacing: "0.04em" }}>{t("shell.tagline")}</div>
           </div>
         </div>
 
@@ -160,14 +166,14 @@ function App() {
                 onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--surface-2)"; }}
                 onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}>
                 <span style={{ color: active ? "var(--accent)" : "var(--text-3)" }}><Icon name={n.icon} size={18} /></span>
-                {n.label}
+                {t("nav." + n.id)}
               </button>
             );
           })}
         </nav>
 
         <div style={{ marginTop: 18, padding: "0 11px" }}>
-          <div style={{ fontSize: 10, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Watchlist</div>
+          <div style={{ fontSize: 10, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>{t("shell.watchlistHeading")}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
             {watch.slice(0, 6).map((t) => {
               const c = watchByTicker[t];
@@ -184,10 +190,13 @@ function App() {
           </div>
         </div>
 
-        <div style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 4px" }}>
-          <ThemeToggle theme={theme} setTheme={setTheme} />
+        <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 10, padding: "0 4px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+            <ThemeToggle theme={theme} setTheme={setTheme} />
+            <LangToggle />
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text-3)" }}>
-            <span className="live-dot"></span> {marketStatus?.open ? "Market open" : "Market closed"}
+            <span className="live-dot"></span> {marketStatus?.open ? t("shell.marketOpen") : t("shell.marketClosed")}
           </div>
         </div>
       </aside>
@@ -201,7 +210,7 @@ function App() {
             {(indices || []).map((ix) => (
               <IndexChip key={ix.symbol} label={ix.label}
                 value={ix.value.toLocaleString("en-US", { maximumFractionDigits: 1, minimumFractionDigits: 1 })}
-                chg={ix.change} invert={ix.symbol === "^VIX"} />
+                chg={ix.change} />
             ))}
           </div>
         </header>
@@ -211,7 +220,7 @@ function App() {
   );
 }
 
-function IndexChip({ label, value, chg, invert }) {
+function IndexChip({ label, value, chg }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.25 }}>
       <div style={{ fontSize: 10, color: "var(--text-3)", letterSpacing: "0.04em" }}>{label}</div>
@@ -224,12 +233,26 @@ function IndexChip({ label, value, chg, invert }) {
 }
 
 function ThemeToggle({ theme, setTheme }) {
+  const { t } = useTranslation();
   const dark = theme === "dark";
   return (
     <button onClick={() => setTheme(dark ? "light" : "dark")}
       style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 10px", borderRadius: 999,
         background: "var(--surface)", border: "1px solid var(--border)", fontSize: 12, color: "var(--text-2)", fontWeight: 500 }}>
-      <Icon name={dark ? "moon" : "sun"} size={15} /> {dark ? "Dark" : "Light"}
+      <Icon name={dark ? "moon" : "sun"} size={15} /> {dark ? t("shell.themeDark") : t("shell.themeLight")}
+    </button>
+  );
+}
+
+function LangToggle() {
+  const { i18n } = useTranslation();
+  const lng = i18n.language?.startsWith("es") ? "es" : "en";
+  const next = lng === "es" ? "en" : "es";
+  return (
+    <button onClick={() => i18n.changeLanguage(next)} title={`${lng.toUpperCase()} → ${next.toUpperCase()}`}
+      style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 10px", borderRadius: 999,
+        background: "var(--surface)", border: "1px solid var(--border)", fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>
+      <Icon name="globe" size={15} /> {lng.toUpperCase()}
     </button>
   );
 }

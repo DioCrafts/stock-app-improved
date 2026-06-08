@@ -2,9 +2,11 @@
    screens-screener-compare.jsx — Screener + Comparator
    ============================================================ */
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { api, useAsync } from "../api.js";
-import { fmt, Icon, Mono, Delta, Pill, Card, ScoreRing } from "../components/ui.jsx";
-import { Th, Td, ScorePip, PageHead, CompositeMini, Loading, ErrorBox, Empty } from "../components/shared.jsx";
+import { Icon, Mono, Delta, Pill, Card, ScoreRing } from "../components/ui.jsx";
+import { fmt } from "../format.js";
+import { Th, Td, ScorePip, PageHead, CompositeMini, Loading, ErrorBox } from "../components/shared.jsx";
 
 /* =================== SCREENER =================== */
 const SCREEN_PRESETS = {
@@ -15,23 +17,30 @@ const SCREEN_PRESETS = {
   "Dividend":        { divMin: 2, healthMin: 65 },
   "High momentum":   { momentumMin: 70, growthMin: 55 },
 };
+// Identificador de preset (clave de SCREEN_PRESETS) → clave i18n para el texto visible
+const PRESET_KEYS = {
+  "All stocks": "allStocks", "Deep value": "deepValue", "GARP": "garp",
+  "Quality growth": "qualityGrowth", "Dividend": "dividend", "High momentum": "highMomentum",
+  "Custom": "custom",
+};
 
-// Catálogo de filtros (claves = parámetros del endpoint /screener)
+// Catálogo de filtros (key = parámetro del endpoint /screener; label visible vía i18n: screener.filter.<key>)
 const FILTER_DEFS = [
-  { key: "capMin", label: "Market cap ≥", min: 0, max: 3500, step: 50, unit: "$B", cmp: "gte" },
-  { key: "peMax", label: "P/E ≤", min: 5, max: 120, step: 1, unit: "×", cmp: "lte" },
-  { key: "pegMax", label: "PEG ≤", min: 0.5, max: 5, step: 0.1, unit: "×", cmp: "lte" },
-  { key: "pbMax", label: "P/B ≤", min: 1, max: 50, step: 1, unit: "×", cmp: "lte" },
-  { key: "divMin", label: "Div yield ≥", min: 0, max: 5, step: 0.1, unit: "%", cmp: "gte" },
-  { key: "roeMin", label: "ROE ≥", min: 0, max: 100, step: 5, unit: "%", cmp: "gte" },
-  { key: "growthRevMin", label: "Rev growth ≥", min: -10, max: 100, step: 5, unit: "%", cmp: "gte" },
-  { key: "valueMin", label: "Value score ≥", min: 0, max: 100, step: 5, unit: "", cmp: "gte" },
-  { key: "growthMin", label: "Growth score ≥", min: 0, max: 100, step: 5, unit: "", cmp: "gte" },
-  { key: "healthMin", label: "Health score ≥", min: 0, max: 100, step: 5, unit: "", cmp: "gte" },
-  { key: "momentumMin", label: "Momentum ≥", min: 0, max: 100, step: 5, unit: "", cmp: "gte" },
+  { key: "capMin", min: 0, max: 3500, step: 50, unit: "$B", cmp: "gte" },
+  { key: "peMax", min: 5, max: 120, step: 1, unit: "×", cmp: "lte" },
+  { key: "pegMax", min: 0.5, max: 5, step: 0.1, unit: "×", cmp: "lte" },
+  { key: "pbMax", min: 1, max: 50, step: 1, unit: "×", cmp: "lte" },
+  { key: "divMin", min: 0, max: 5, step: 0.1, unit: "%", cmp: "gte" },
+  { key: "roeMin", min: 0, max: 100, step: 5, unit: "%", cmp: "gte" },
+  { key: "growthRevMin", min: -10, max: 100, step: 5, unit: "%", cmp: "gte" },
+  { key: "valueMin", min: 0, max: 100, step: 5, unit: "", cmp: "gte" },
+  { key: "growthMin", min: 0, max: 100, step: 5, unit: "", cmp: "gte" },
+  { key: "healthMin", min: 0, max: 100, step: 5, unit: "", cmp: "gte" },
+  { key: "momentumMin", min: 0, max: 100, step: 5, unit: "", cmp: "gte" },
 ];
 
 function Screener({ go, watch, toggleWatch }) {
+  const { t } = useTranslation();
   const [preset, setPreset] = useState("All stocks");
   const [filters, setFilters] = useState({});
   const [sort, setSort] = useState({ k: "composite", dir: "desc" });
@@ -57,13 +66,13 @@ function Screener({ go, watch, toggleWatch }) {
     <div className="fade-up" style={{ display: "flex", height: "100%", minHeight: 0 }}>
       {/* filter rail */}
       <div style={{ width: 280, flex: "none", borderRight: "1px solid var(--border)", overflowY: "auto", padding: 20, background: "var(--bg-2)" }}>
-        <h2 style={{ fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-2)", marginBottom: 12 }}>Factor presets</h2>
+        <h2 style={{ fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-2)", marginBottom: 12 }}>{t("screener.factorPresets")}</h2>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 22 }}>
           {Object.keys(SCREEN_PRESETS).map((p) => (
-            <Pill key={p} active={preset === p} onClick={() => applyPreset(p)}>{p}</Pill>
+            <Pill key={p} active={preset === p} onClick={() => applyPreset(p)}>{t("screener.preset." + PRESET_KEYS[p])}</Pill>
           ))}
         </div>
-        <h2 style={{ fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-2)", marginBottom: 14 }}>Filters</h2>
+        <h2 style={{ fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-2)", marginBottom: 14 }}>{t("screener.filtersHeading")}</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {FILTER_DEFS.map((d) => (
             <FilterSlider key={d.key} def={d} value={filters[d.key]}
@@ -74,16 +83,16 @@ function Screener({ go, watch, toggleWatch }) {
 
       {/* results */}
       <div style={{ flex: 1, minWidth: 0, overflowY: "auto", padding: 24 }}>
-        <PageHead title="Screener"
-          sub={<span>{total} matches{results.length < total ? ` · showing first ${results.length}` : ""}{activeFilters.length ? ` · ${activeFilters.length} active filter${activeFilters.length > 1 ? "s" : ""}` : " · no filters"}</span>}
+        <PageHead title={t("screener.title")}
+          sub={<span>{t("screener.matches", { count: total })}{results.length < total ? t("screener.showingFirst", { count: results.length }) : ""}{activeFilters.length ? t("screener.activeFilters", { count: activeFilters.length }) : t("screener.noFilters")}</span>}
           right={activeFilters.length > 0 && <button onClick={() => { setFilters({}); setPreset("All stocks"); }}
-            style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600 }}>Reset all</button>} />
+            style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600 }}>{t("screener.resetAll")}</button>} />
 
         {activeFilters.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
             {activeFilters.map((d) => (
               <Pill key={d.key} tone="accent" onClick={() => clearFilter(d.key)}>
-                {d.label} {filters[d.key]}{d.unit} <Icon name="x" size={11} />
+                {t("screener.filter." + d.key)} {filters[d.key]}{d.unit} <Icon name="x" size={11} />
               </Pill>
             ))}
           </div>
@@ -95,16 +104,16 @@ function Screener({ go, watch, toggleWatch }) {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr>
-                    <Th k="ticker" sort={sort} setSort={setSort} align="left">Company</Th>
-                    <Th k="price" sort={sort} setSort={setSort}>Price</Th>
-                    <Th k="pe" sort={sort} setSort={setSort}>P/E</Th>
-                    <Th k="peg" sort={sort} setSort={setSort}>PEG</Th>
-                    <Th k="div" sort={sort} setSort={setSort}>Div</Th>
-                    <Th k="roe" sort={sort} setSort={setSort}>ROE</Th>
-                    <Th k="rev" sort={sort} setSort={setSort}>Rev gr.</Th>
-                    <Th k="value" sort={sort} setSort={setSort}>Value</Th>
-                    <Th k="growth" sort={sort} setSort={setSort}>Growth</Th>
-                    <Th k="composite" sort={sort} setSort={setSort}>Score</Th>
+                    <Th k="ticker" sort={sort} setSort={setSort} align="left">{t("cols.company")}</Th>
+                    <Th k="price" sort={sort} setSort={setSort}>{t("cols.price")}</Th>
+                    <Th k="pe" sort={sort} setSort={setSort}>{t("cols.pe")}</Th>
+                    <Th k="peg" sort={sort} setSort={setSort}>{t("cols.peg")}</Th>
+                    <Th k="div" sort={sort} setSort={setSort}>{t("cols.div")}</Th>
+                    <Th k="roe" sort={sort} setSort={setSort}>{t("cols.roe")}</Th>
+                    <Th k="rev" sort={sort} setSort={setSort}>{t("cols.rev")}</Th>
+                    <Th k="value" sort={sort} setSort={setSort}>{t("cols.value")}</Th>
+                    <Th k="growth" sort={sort} setSort={setSort}>{t("cols.growth")}</Th>
+                    <Th k="composite" sort={sort} setSort={setSort}>{t("cols.score")}</Th>
                     <Th w={36}></Th>
                   </tr>
                 </thead>
@@ -140,7 +149,7 @@ function Screener({ go, watch, toggleWatch }) {
                     </tr>
                   ))}
                   {results.length === 0 && (
-                    <tr><td colSpan={11} style={{ padding: 40, textAlign: "center", color: "var(--text-3)" }}>No companies match these filters. Loosen a constraint.</td></tr>
+                    <tr><td colSpan={11} style={{ padding: 40, textAlign: "center", color: "var(--text-3)" }}>{t("screener.noMatch")}</td></tr>
                   )}
                 </tbody>
               </table>
@@ -154,14 +163,15 @@ function Screener({ go, watch, toggleWatch }) {
 }
 
 function FilterSlider({ def, value, onChange, onClear }) {
+  const { t } = useTranslation();
   const active = value != null;
   const val = value == null ? (def.cmp === "lte" ? def.max : def.min) : value;
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-        <span style={{ fontSize: 12, color: active ? "var(--text)" : "var(--text-2)", fontWeight: active ? 600 : 400 }}>{def.label}</span>
+        <span style={{ fontSize: 12, color: active ? "var(--text)" : "var(--text-2)", fontWeight: active ? 600 : 400 }}>{t("screener.filter." + def.key)}</span>
         <span className="mono tnum" style={{ fontSize: 12, color: active ? "var(--accent)" : "var(--text-3)", display: "flex", gap: 6, alignItems: "center" }}>
-          {active ? val + def.unit : "any"}
+          {active ? val + def.unit : t("common.any")}
           {active && <button onClick={onClear} style={{ color: "var(--text-3)", display: "grid", placeItems: "center" }}><Icon name="x" size={11} /></button>}
         </span>
       </div>
@@ -173,34 +183,36 @@ function FilterSlider({ def, value, onChange, onClear }) {
 }
 
 /* =================== COMPARE =================== */
+// labelKey/groupKey = claves i18n (el texto visible lo resuelve t() en render)
 const CMP_ROWS = [
-  { group: "Price", rows: [
-    { label: "Price", get: (c) => c.price, fmt: (v) => fmt.price(v) },
-    { label: "Chg today", get: (c) => c.change, render: (c) => <Delta value={c.change} pct />, better: "high" },
-    { label: "Market cap", get: (c) => c.marketCap, fmt: (v) => fmt.cap(v), better: "high" },
-    { label: "Beta", get: (c) => c.beta, fmt: (v) => fmt.num(v, 2) },
+  { groupKey: "compare.group.price", rows: [
+    { labelKey: "metric.price", get: (c) => c.price, fmt: (v) => fmt.price(v) },
+    { labelKey: "metric.chgToday", get: (c) => c.change, render: (c) => <Delta value={c.change} pct />, better: "high" },
+    { labelKey: "metric.marketCap", get: (c) => c.marketCap, fmt: (v) => fmt.cap(v), better: "high" },
+    { labelKey: "metric.beta", get: (c) => c.beta, fmt: (v) => fmt.num(v, 2) },
   ]},
-  { group: "Valuation", rows: [
-    { label: "P/E (ttm)", get: (c) => c.pe, fmt: (v) => fmt.num(v, 1), better: "low" },
-    { label: "Forward P/E", get: (c) => c.fwdPe, fmt: (v) => fmt.num(v, 1), better: "low" },
-    { label: "PEG", get: (c) => c.peg, fmt: (v) => v ? fmt.num(v, 1) : "—", better: "low" },
-    { label: "P/B", get: (c) => c.pb, fmt: (v) => fmt.num(v, 1), better: "low" },
-    { label: "P/S", get: (c) => c.ps, fmt: (v) => fmt.num(v, 1), better: "low" },
-    { label: "EV/EBITDA", get: (c) => c.evEbitda, fmt: (v) => v ? fmt.num(v, 1) : "—", better: "low" },
-    { label: "FCF yield", get: (c) => c.fcfYield, fmt: (v) => v ? fmt.pctPlain(v) : "—", better: "high" },
-    { label: "Div yield", get: (c) => c.divYield, fmt: (v) => v ? fmt.pctPlain(v) : "—", better: "high" },
+  { groupKey: "compare.group.valuation", rows: [
+    { labelKey: "metric.peTtm", get: (c) => c.pe, fmt: (v) => fmt.num(v, 1), better: "low" },
+    { labelKey: "metric.fwdPe", get: (c) => c.fwdPe, fmt: (v) => fmt.num(v, 1), better: "low" },
+    { labelKey: "metric.peg", get: (c) => c.peg, fmt: (v) => v ? fmt.num(v, 1) : "—", better: "low" },
+    { labelKey: "metric.pb", get: (c) => c.pb, fmt: (v) => fmt.num(v, 1), better: "low" },
+    { labelKey: "metric.ps", get: (c) => c.ps, fmt: (v) => fmt.num(v, 1), better: "low" },
+    { labelKey: "metric.evEbitda", get: (c) => c.evEbitda, fmt: (v) => v ? fmt.num(v, 1) : "—", better: "low" },
+    { labelKey: "metric.fcfYield", get: (c) => c.fcfYield, fmt: (v) => v ? fmt.pctPlain(v) : "—", better: "high" },
+    { labelKey: "metric.divYield", get: (c) => c.divYield, fmt: (v) => v ? fmt.pctPlain(v) : "—", better: "high" },
   ]},
-  { group: "Profitability & growth", rows: [
-    { label: "ROE", get: (c) => c.roe, fmt: (v) => fmt.pctPlain(v), better: "high" },
-    { label: "Gross margin", get: (c) => c.grossMargin, fmt: (v) => v ? fmt.pctPlain(v) : "—", better: "high" },
-    { label: "Net margin", get: (c) => c.netMargin, fmt: (v) => fmt.pctPlain(v), better: "high" },
-    { label: "Rev growth", get: (c) => c.revGrowth, fmt: (v) => fmt.pct(v, 1), better: "high" },
-    { label: "EPS growth", get: (c) => c.epsGrowth, fmt: (v) => fmt.pct(v, 1), better: "high" },
-    { label: "Debt / equity", get: (c) => c.debtEq, fmt: (v) => fmt.num(v, 2), better: "low" },
+  { groupKey: "compare.group.profitabilityGrowth", rows: [
+    { labelKey: "metric.roe", get: (c) => c.roe, fmt: (v) => fmt.pctPlain(v), better: "high" },
+    { labelKey: "metric.grossMargin", get: (c) => c.grossMargin, fmt: (v) => v ? fmt.pctPlain(v) : "—", better: "high" },
+    { labelKey: "metric.netMargin", get: (c) => c.netMargin, fmt: (v) => fmt.pctPlain(v), better: "high" },
+    { labelKey: "metric.revGrowthShort", get: (c) => c.revGrowth, fmt: (v) => fmt.pct(v, 1), better: "high" },
+    { labelKey: "metric.epsGrowth", get: (c) => c.epsGrowth, fmt: (v) => fmt.pct(v, 1), better: "high" },
+    { labelKey: "metric.debtEq", get: (c) => c.debtEq, fmt: (v) => fmt.num(v, 2), better: "low" },
   ]},
 ];
 
 function Compare({ go, set, setSet }) {
+  const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const { loading, error, data } = useAsync(
     () => (set.length ? api.companies(set) : Promise.resolve([])), [set.join(",")]);
@@ -224,13 +236,13 @@ function Compare({ go, set, setSet }) {
 
   return (
     <div className="fade-up" style={{ padding: 24, height: "100%", overflow: "auto" }}>
-      <PageHead title="Compare" sub={`${cos.length} companies side by side · best value per metric highlighted`} />
+      <PageHead title={t("compare.title")} sub={t("compare.subtitle", { count: cos.length })} />
 
       {loading && !data ? <Loading /> : error ? <ErrorBox error={error} /> : (
       <Card pad={0} style={{ minWidth: "fit-content" }}>
         {/* header row: companies */}
         <div style={{ display: "grid", gridTemplateColumns: grid, position: "sticky", top: 0, background: "var(--surface)", zIndex: 2, borderBottom: "1px solid var(--border)" }}>
-          <div style={{ padding: 16, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-3)", display: "flex", alignItems: "flex-end" }}>Metric</div>
+          <div style={{ padding: 16, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-3)", display: "flex", alignItems: "flex-end" }}>{t("compare.metric")}</div>
           {cos.map((c) => (
             <div key={c.ticker} style={{ padding: 16, borderLeft: "1px solid var(--border)", position: "relative" }}>
               <button onClick={() => remove(c.ticker)} style={{ position: "absolute", top: 8, right: 8, color: "var(--text-3)", display: "grid", placeItems: "center", width: 20, height: 20 }}><Icon name="x" size={12} /></button>
@@ -246,7 +258,7 @@ function Compare({ go, set, setSet }) {
             <div style={{ padding: 16, borderLeft: "1px solid var(--border)", display: "grid", placeItems: "center", position: "relative" }}>
               <button onClick={() => setAdding((a) => !a)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "var(--text-3)" }}>
                 <div style={{ width: 30, height: 30, borderRadius: 7, border: "1.5px dashed var(--border-strong)", display: "grid", placeItems: "center" }}><Icon name="plus" size={16} /></div>
-                <span style={{ fontSize: 11 }}>Add</span>
+                <span style={{ fontSize: 11 }}>{t("common.add")}</span>
               </button>
               {adding && <AddSearch onPick={add} exclude={set} />}
             </div>
@@ -255,15 +267,15 @@ function Compare({ go, set, setSet }) {
 
         {/* metric rows */}
         {CMP_ROWS.map((g) => (
-          <div key={g.group}>
+          <div key={g.groupKey}>
             <div style={{ display: "grid", gridTemplateColumns: grid, background: "var(--bg-2)", borderBottom: "1px solid var(--border)" }}>
-              <div style={{ gridColumn: `1 / -1`, padding: "7px 16px", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-2)" }}>{g.group}</div>
+              <div style={{ gridColumn: `1 / -1`, padding: "7px 16px", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-2)" }}>{t(g.groupKey)}</div>
             </div>
             {g.rows.map((row) => {
               const bi = bestIdx(row);
               return (
-                <div key={row.label} style={{ display: "grid", gridTemplateColumns: grid, borderBottom: "1px solid var(--border)" }}>
-                  <div style={{ padding: "10px 16px", fontSize: 12.5, color: "var(--text-2)" }}>{row.label}</div>
+                <div key={row.labelKey} style={{ display: "grid", gridTemplateColumns: grid, borderBottom: "1px solid var(--border)" }}>
+                  <div style={{ padding: "10px 16px", fontSize: 12.5, color: "var(--text-2)" }}>{t(row.labelKey)}</div>
                   {cos.map((c, i) => (
                     <div key={c.ticker} style={{ padding: "10px 16px", borderLeft: "1px solid var(--border)",
                       background: i === bi ? "var(--up-bg)" : "transparent",
@@ -280,14 +292,14 @@ function Compare({ go, set, setSet }) {
 
         {/* scores row */}
         <div style={{ display: "grid", gridTemplateColumns: grid, background: "var(--bg-2)", borderBottom: "1px solid var(--border)" }}>
-          <div style={{ gridColumn: `1 / -1`, padding: "7px 16px", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-2)" }}>Scores</div>
+          <div style={{ gridColumn: `1 / -1`, padding: "7px 16px", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-2)" }}>{t("compare.scores")}</div>
         </div>
         {["value", "growth", "health", "momentum", "composite"].map((sk) => {
           let best = -1, bestV = -Infinity;
           cos.forEach((c, i) => { const v = c.scores?.[sk]; if (v != null && v > bestV) { bestV = v; best = i; } });
           return (
             <div key={sk} style={{ display: "grid", gridTemplateColumns: grid, borderBottom: "1px solid var(--border)" }}>
-              <div style={{ padding: "10px 16px", fontSize: 12.5, color: "var(--text-2)", textTransform: "capitalize", fontWeight: sk === "composite" ? 600 : 400 }}>{sk}</div>
+              <div style={{ padding: "10px 16px", fontSize: 12.5, color: "var(--text-2)", fontWeight: sk === "composite" ? 600 : 400 }}>{t("pillar." + sk)}</div>
               {cos.map((c, i) => (
                 <div key={c.ticker} style={{ padding: "10px 16px", borderLeft: "1px solid var(--border)", background: i === best ? "var(--up-bg)" : "transparent" }}>
                   <CompositeMini score={c.scores?.[sk]} />
@@ -304,18 +316,20 @@ function Compare({ go, set, setSet }) {
 
 /* buscador para añadir empresas a Compare (sustituye el dropdown del universo completo) */
 function AddSearch({ onPick, exclude }) {
+  const { t } = useTranslation();
   const [q, setQ] = useState("");
   const [res, setRes] = useState([]);
   useEffect(() => {
-    if (!q.trim()) { setRes([]); return; }
     const id = setTimeout(() => {
-      api.search(q.trim()).then((r) => setRes(r.filter((x) => !exclude.includes(x.ticker)))).catch(() => setRes([]));
+      const query = q.trim();
+      if (!query) { setRes([]); return; }
+      api.search(query).then((r) => setRes(r.filter((x) => !exclude.includes(x.ticker)))).catch(() => setRes([]));
     }, 200);
     return () => clearTimeout(id);
   }, [q, exclude]);
   return (
     <div style={{ position: "absolute", top: 70, left: 8, right: 8, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow)", padding: 5, zIndex: 10, maxHeight: 260, overflowY: "auto" }}>
-      <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar ticker o nombre…"
+      <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("common.searchShort")}
         style={{ width: "100%", boxSizing: "border-box", padding: "6px 8px", marginBottom: 4, border: "1px solid var(--border)", borderRadius: 6, background: "var(--surface-2)", color: "var(--text)", fontSize: 12, outline: "none" }} />
       {res.map((c) => (
         <div key={c.ticker} onMouseDown={() => onPick(c.ticker)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, cursor: "pointer" }}
