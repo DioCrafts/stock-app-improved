@@ -4,7 +4,7 @@ Los valores de entrada replican la salida REAL de yfinance 1.4.1 observada en vi
 """
 import pandas as pd
 
-from app.ingest.mappers import info_to_company, revenue_and_years
+from app.ingest.mappers import history_to_spark, info_to_company, revenue_and_years
 
 AAPL_INFO = {
     "longName": "Apple Inc.", "sector": "Technology", "fullExchangeName": "NasdaqGS",
@@ -73,3 +73,12 @@ def test_zero_values_not_dropped():  # L2 (0.0 es dato válido, no None)
                               "trailingPegRatio": 0.0, "pegRatio": 2.0})
     assert c.fcfYield == 0.0          # FCF nulo → yield 0.0, no None
     assert c.peg == 0.0               # respeta el 0.0 de trailing (no cae a pegRatio por truthiness)
+
+
+def test_history_to_spark_usd_gbp_and_empty():  # campo `spark` del listado (columna 30d)
+    usd = pd.DataFrame({"Close": [10.0, 11.0, 12.5]})
+    assert history_to_spark(usd, "USD") == [10.0, 11.0, 12.5]
+    gbp = pd.DataFrame({"Close": [1000.0, 1100.0]})   # GBp (peniques) → libras ÷100
+    assert history_to_spark(gbp, "GBp") == [10.0, 11.0]
+    assert history_to_spark(None, "USD") == []         # sin datos → serie vacía
+    assert history_to_spark(pd.DataFrame(), "USD") == []

@@ -2,15 +2,18 @@
    screens-watchlist-overview.jsx — Watchlist + Company ficha
    ============================================================ */
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api, useAsync } from "../api.js";
 import {
-  fmt, scoreColor, scoreLabel, Icon, Mono, Delta, Sparkline, AreaChart,
+  Icon, Mono, Delta, Sparkline, AreaChart,
   ScoreRing, ScoreBar, Pill, Card, Stat,
 } from "../components/ui.jsx";
+import { fmt, scoreColor, scoreLabel } from "../format.js";
 import { Th, Td, ScorePip, CompositeMini, PageHead, Loading, ErrorBox, Empty } from "../components/shared.jsx";
 
 /* =================== WATCHLIST =================== */
 function Watchlist({ go, watch, toggleWatch }) {
+  const { t } = useTranslation();
   const [sort, setSort] = useState({ k: "composite", dir: "desc" });
   const { loading, error, data } = useAsync(
     () => (watch.length ? api.companies(watch) : Promise.resolve([])), [watch.join(",")]);
@@ -36,18 +39,18 @@ function Watchlist({ go, watch, toggleWatch }) {
 
   return (
     <div className="fade-up" style={{ padding: 24, height: "100%", overflowY: "auto" }}>
-      <PageHead title="Watchlist" sub={`${rows.length} companies tracked · NYSE / NASDAQ / TSX / LSE`} />
+      <PageHead title={t("watchlist.title")} sub={t("watchlist.subtitle", { count: rows.length })} />
 
       {loading && !data ? <Loading /> : error ? <ErrorBox error={error} /> : rows.length === 0 ? (
-        <Empty label="Tu watchlist está vacía. Añade empresas desde el Screener o la búsqueda." />
+        <Empty label={t("watchlist.empty")} />
       ) : (
         <>
           {/* summary strip */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 18 }}>
-            <SummaryTile label="Avg composite score" value={avgScore} ring />
-            <SummaryTile label="Advancing today" value={`${gainers}/${rows.length}`} sub={`${decliners} declining`} />
-            <SummaryTile label="Top mover" value={best ? best.ticker : "—"} delta={best ? best.change : null} onClick={best ? () => go("company", best.ticker) : null} />
-            <SummaryTile label="Laggard" value={worst ? worst.ticker : "—"} delta={worst ? worst.change : null} onClick={worst ? () => go("company", worst.ticker) : null} />
+            <SummaryTile label={t("watchlist.avgScore")} value={avgScore} ring />
+            <SummaryTile label={t("watchlist.advancing")} value={`${gainers}/${rows.length}`} sub={t("watchlist.declining", { count: decliners })} />
+            <SummaryTile label={t("watchlist.topMover")} value={best ? best.ticker : "—"} delta={best ? best.change : null} onClick={best ? () => go("company", best.ticker) : null} />
+            <SummaryTile label={t("watchlist.laggard")} value={worst ? worst.ticker : "—"} delta={worst ? worst.change : null} onClick={worst ? () => go("company", worst.ticker) : null} />
           </div>
 
           <Card pad={0}>
@@ -55,16 +58,17 @@ function Watchlist({ go, watch, toggleWatch }) {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr>
-                    <Th k="ticker" sort={sort} setSort={setSort} align="left">Company</Th>
-                    <Th k="price" sort={sort} setSort={setSort}>Price</Th>
-                    <Th k="change" sort={sort} setSort={setSort}>Chg</Th>
-                    <Th k="cap" sort={sort} setSort={setSort}>Mkt Cap</Th>
-                    <Th k="pe" sort={sort} setSort={setSort}>P/E</Th>
-                    <Th k="peg" sort={sort} setSort={setSort}>PEG</Th>
-                    <Th k="div" sort={sort} setSort={setSort}>Div</Th>
-                    <Th k="value" sort={sort} setSort={setSort}>Value</Th>
-                    <Th k="growth" sort={sort} setSort={setSort}>Growth</Th>
-                    <Th k="composite" sort={sort} setSort={setSort}>Score</Th>
+                    <Th k="ticker" sort={sort} setSort={setSort} align="left">{t("cols.company")}</Th>
+                    <Th k="price" sort={sort} setSort={setSort}>{t("cols.price")}</Th>
+                    <Th k="change" sort={sort} setSort={setSort}>{t("cols.chg")}</Th>
+                    <Th align="center">{t("cols.thirtyD")}</Th>
+                    <Th k="cap" sort={sort} setSort={setSort}>{t("cols.cap")}</Th>
+                    <Th k="pe" sort={sort} setSort={setSort}>{t("cols.pe")}</Th>
+                    <Th k="peg" sort={sort} setSort={setSort}>{t("cols.peg")}</Th>
+                    <Th k="div" sort={sort} setSort={setSort}>{t("cols.div")}</Th>
+                    <Th k="value" sort={sort} setSort={setSort}>{t("cols.value")}</Th>
+                    <Th k="growth" sort={sort} setSort={setSort}>{t("cols.growth")}</Th>
+                    <Th k="composite" sort={sort} setSort={setSort}>{t("cols.score")}</Th>
                     <Th w={36}></Th>
                   </tr>
                 </thead>
@@ -84,6 +88,11 @@ function Watchlist({ go, watch, toggleWatch }) {
                       </Td>
                       <Td><span className="mono tnum">{fmt.price(c.price)}</span></Td>
                       <Td><Delta value={c.change} pct /></Td>
+                      <Td align="center"><div style={{ display: "inline-block" }}>
+                        {c.spark && c.spark.length >= 2
+                          ? <Sparkline data={c.spark} w={72} h={24} />
+                          : <span className="mono" style={{ color: "var(--text-3)" }}>—</span>}
+                      </div></Td>
                       <Td><span className="mono tnum" style={{ color: "var(--text-2)" }}>{fmt.cap(c.marketCap)}</span></Td>
                       <Td><span className="mono tnum">{fmt.num(c.pe, 1)}</span></Td>
                       <Td><span className="mono tnum" style={{ color: c.peg && c.peg < 1.5 ? "var(--up)" : "var(--text-2)" }}>{c.peg ? fmt.num(c.peg, 1) : "—"}</span></Td>
@@ -106,7 +115,7 @@ function Watchlist({ go, watch, toggleWatch }) {
             </div>
           </Card>
           <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 12 }}>
-            Click any row to open the company. Scores: Value 35% · Growth 30% · Health 20% · Momentum 15% (percentiles por mercado).
+            {t("watchlist.footer")}
           </p>
         </>
       )}
@@ -137,12 +146,13 @@ function SummaryTile({ label, value, sub, delta, ring, onClick }) {
 const RANGE_DAYS = { "1M": 22, "3M": 63, "6M": 126, "1Y": 252 };
 
 function CompanyOverview({ ticker, go, watch, toggleWatch }) {
+  const { t } = useTranslation();
   const [range, setRange] = useState("3M");
   const { loading, error, data: c } = useAsync(() => api.company(ticker), [ticker]);
   const pricesState = useAsync(() => api.prices(ticker, "1Y"), [ticker]);
 
   if (loading) return <div className="fade-up" style={{ padding: 24 }}><Loading /></div>;
-  if (error || !c) return <div className="fade-up" style={{ padding: 24 }}><ErrorBox error={error} label="Empresa no encontrada" /></div>;
+  if (error || !c) return <div className="fade-up" style={{ padding: 24 }}><ErrorBox error={error} label={t("company.notFound")} /></div>;
 
   const watched = watch.includes(c.ticker);
   const closes = (pricesState.data?.points || []).map((p) => p.close);
@@ -151,21 +161,21 @@ function CompanyOverview({ ticker, go, watch, toggleWatch }) {
   const hi = closes.length ? Math.max(...closes) : null;
 
   const statGroups = [
-    { title: "Valuation", items: [
-      ["Market cap", fmt.cap(c.marketCap)], ["P/E (ttm)", fmt.num(c.pe, 1)],
-      ["Forward P/E", fmt.num(c.fwdPe, 1)], ["PEG", c.peg ? fmt.num(c.peg, 1) : "—"],
-      ["P/B", fmt.num(c.pb, 1)], ["P/S", fmt.num(c.ps, 1)],
-      ["EV/EBITDA", c.evEbitda ? fmt.num(c.evEbitda, 1) : "—"], ["FCF yield", c.fcfYield ? fmt.pctPlain(c.fcfYield) : "—"],
+    { title: t("company.group.valuation"), items: [
+      [t("metric.marketCap"), fmt.cap(c.marketCap)], [t("metric.peTtm"), fmt.num(c.pe, 1)],
+      [t("metric.fwdPe"), fmt.num(c.fwdPe, 1)], [t("metric.peg"), c.peg ? fmt.num(c.peg, 1) : "—"],
+      [t("metric.pb"), fmt.num(c.pb, 1)], [t("metric.ps"), fmt.num(c.ps, 1)],
+      [t("metric.evEbitda"), c.evEbitda ? fmt.num(c.evEbitda, 1) : "—"], [t("metric.fcfYield"), c.fcfYield ? fmt.pctPlain(c.fcfYield) : "—"],
     ]},
-    { title: "Profitability", items: [
-      ["ROE", fmt.pctPlain(c.roe)], ["ROIC", c.roic ? fmt.pctPlain(c.roic) : "—"],
-      ["Gross margin", c.grossMargin ? fmt.pctPlain(c.grossMargin) : "—"], ["Oper. margin", fmt.pctPlain(c.opMargin)],
-      ["Net margin", fmt.pctPlain(c.netMargin)], ["Div yield", c.divYield ? fmt.pctPlain(c.divYield) : "—"],
+    { title: t("company.group.profitability"), items: [
+      [t("metric.roe"), fmt.pctPlain(c.roe)], [t("metric.roic"), c.roic ? fmt.pctPlain(c.roic) : "—"],
+      [t("metric.grossMargin"), c.grossMargin ? fmt.pctPlain(c.grossMargin) : "—"], [t("metric.opMarginShort"), fmt.pctPlain(c.opMargin)],
+      [t("metric.netMargin"), fmt.pctPlain(c.netMargin)], [t("metric.divYield"), c.divYield ? fmt.pctPlain(c.divYield) : "—"],
     ]},
-    { title: "Growth & risk", items: [
-      ["Revenue growth", fmt.pct(c.revGrowth, 1)], ["EPS growth", fmt.pct(c.epsGrowth, 1)],
-      ["Debt / equity", fmt.num(c.debtEq, 2)], ["Current ratio", c.currentRatio ? fmt.num(c.currentRatio, 2) : "—"],
-      ["Beta", fmt.num(c.beta, 2)], ["Employees", c.employees ? (c.employees / 1000).toFixed(0) + "k" : "—"],
+    { title: t("company.group.growthRisk"), items: [
+      [t("metric.revGrowth"), fmt.pct(c.revGrowth, 1)], [t("metric.epsGrowth"), fmt.pct(c.epsGrowth, 1)],
+      [t("metric.debtEq"), fmt.num(c.debtEq, 2)], [t("metric.currentRatio"), c.currentRatio ? fmt.num(c.currentRatio, 2) : "—"],
+      [t("metric.beta"), fmt.num(c.beta, 2)], [t("metric.employees"), c.employees ? (c.employees / 1000).toFixed(0) + "k" : "—"],
     ]},
   ];
 
@@ -185,15 +195,15 @@ function CompanyOverview({ ticker, go, watch, toggleWatch }) {
             <span className="mono tnum" style={{ fontSize: 30, fontWeight: 600 }}>{fmt.price(c.price)}</span>
             <Delta value={c.change} pct size={16} />
             <span className="mono tnum" style={{ fontSize: 13, color: "var(--text-3)" }}>
-              {fmt.signed(c.price - c.prevClose)} today
+              {fmt.signed(c.price - c.prevClose)} {t("company.today")}
             </span>
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <ActionBtn icon="valuation" label="DCF" onClick={() => go("valuation", c.ticker)} />
-          <ActionBtn icon="financials" label="Financials" onClick={() => go("financials", c.ticker)} />
-          <ActionBtn icon="compare" label="Compare" onClick={() => go("compare", c.ticker)} />
-          <ActionBtn icon={watched ? "check" : "plus"} label={watched ? "Watching" : "Watch"}
+          <ActionBtn icon="valuation" label={t("company.actions.dcf")} onClick={() => go("valuation", c.ticker)} />
+          <ActionBtn icon="financials" label={t("company.actions.financials")} onClick={() => go("financials", c.ticker)} />
+          <ActionBtn icon="compare" label={t("company.actions.compare")} onClick={() => go("compare", c.ticker)} />
+          <ActionBtn icon={watched ? "check" : "plus"} label={watched ? t("company.actions.watching") : t("company.actions.watch")}
             primary={!watched} active={watched} onClick={() => toggleWatch(c.ticker)} />
         </div>
       </div>
@@ -202,7 +212,7 @@ function CompanyOverview({ ticker, go, watch, toggleWatch }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, alignItems: "start" }}>
         {/* left: chart + stats */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <Card title="Price" pad={16}
+          <Card title={t("company.card.price")} pad={16}
             action={<div style={{ display: "flex", gap: 4 }}>
               {Object.keys(RANGE_DAYS).map((r) => (
                 <button key={r} onClick={() => setRange(r)} className="mono"
@@ -213,7 +223,7 @@ function CompanyOverview({ ticker, go, watch, toggleWatch }) {
                   }}>{r}</button>
               ))}
             </div>}>
-            {pricesState.loading ? <Loading /> : series.length < 2 ? <Empty label="Sin datos de precio" /> : <AreaChart data={series} h={250} baseline={series[0]} />}
+            {pricesState.loading ? <Loading /> : series.length < 2 ? <Empty label={t("company.noPriceData")} /> : <AreaChart data={series} h={250} baseline={series[0]} />}
           </Card>
 
           {statGroups.map((g) => (
@@ -232,40 +242,40 @@ function CompanyOverview({ ticker, go, watch, toggleWatch }) {
             </Card>
           ))}
 
-          <Card title="About" pad={16}>
+          <Card title={t("company.card.about")} pad={16}>
             <p style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.6, textWrap: "pretty" }}>{c.desc || "—"}</p>
           </Card>
         </div>
 
         {/* right: score panel + revenue */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16, position: "sticky", top: 0 }}>
-          <Card title="Composite score" pad={16}>
+          <Card title={t("company.card.composite")} pad={16}>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 18 }}>
               <ScoreRing score={c.scores?.composite} size={84} stroke={8} />
               <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.5 }}>
                 {c.scores?.composite != null ? (
-                  <><strong style={{ color: scoreColor(c.scores.composite) }}>{scoreLabel(c.scores.composite)}</strong> overall. </>
+                  <><strong style={{ color: scoreColor(c.scores.composite) }}>{t("score." + scoreLabel(c.scores.composite))}</strong> {t("company.composite.overall")} </>
                 ) : null}
-                Weighted blend of value, growth, balance-sheet health and price momentum.
+                {t("company.composite.blend")}
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <ScoreBar label="Value" sub="ratios" score={c.scores?.value} />
-              <ScoreBar label="Growth" sub="rev, EPS" score={c.scores?.growth} />
-              <ScoreBar label="Health" sub="balance" score={c.scores?.health} />
-              <ScoreBar label="Momentum" sub="price" score={c.scores?.momentum} />
+              <ScoreBar label={t("pillar.value")} sub={t("company.scoreSub.value")} score={c.scores?.value} />
+              <ScoreBar label={t("pillar.growth")} sub={t("company.scoreSub.growth")} score={c.scores?.growth} />
+              <ScoreBar label={t("pillar.health")} sub={t("company.scoreSub.health")} score={c.scores?.health} />
+              <ScoreBar label={t("pillar.momentum")} sub={t("company.scoreSub.momentum")} score={c.scores?.momentum} />
             </div>
           </Card>
 
-          <Card title="Revenue ($B)" pad={16}>
-            {c.revenue && c.revenue.length ? <RevenueBars data={c.revenue} years={c.revenueYears} /> : <Empty label="Sin datos" />}
+          <Card title={t("company.card.revenue")} pad={16}>
+            {c.revenue && c.revenue.length ? <RevenueBars data={c.revenue} years={c.revenueYears} /> : <Empty label={t("company.noData")} />}
           </Card>
 
-          <Card title="Snapshot" pad={0}>
-            <KV k="52-wk range" v={`${fmt.price(lo)} – ${fmt.price(hi)}`} />
-            <KV k="Prev close" v={fmt.price(c.prevClose)} />
-            <KV k="Market cap" v={fmt.cap(c.marketCap)} />
-            <KV k="Dividend yield" v={c.divYield ? fmt.pctPlain(c.divYield) : "None"} last />
+          <Card title={t("company.card.snapshot")} pad={0}>
+            <KV k={t("company.snapshot.range52")} v={`${fmt.price(lo)} – ${fmt.price(hi)}`} />
+            <KV k={t("company.snapshot.prevClose")} v={fmt.price(c.prevClose)} />
+            <KV k={t("company.snapshot.marketCap")} v={fmt.cap(c.marketCap)} />
+            <KV k={t("company.snapshot.divYield")} v={c.divYield ? fmt.pctPlain(c.divYield) : t("common.none")} last />
           </Card>
         </div>
       </div>

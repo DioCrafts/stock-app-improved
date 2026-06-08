@@ -40,6 +40,8 @@ export function useAsync(fn, deps) {
   useEffect(() => {
     let alive = true;
     // conservar `data` durante el refetch → la pantalla no parpadea (L13)
+    // reset a loading al cambiar deps: sincronización intencionada, no un bucle de render
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setState((s) => ({ ...s, loading: true, error: null }));
     Promise.resolve()
       .then(fn)

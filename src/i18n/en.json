@@ -1,0 +1,267 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "error": "Couldn't load data",
+    "empty": "No results",
+    "none": "None",
+    "any": "any",
+    "add": "Add",
+    "searchShort": "Search ticker or name…"
+  },
+  "shell": {
+    "tagline": "EQUITY RESEARCH",
+    "search": "Search ticker or company…",
+    "watchlistHeading": "Watchlist",
+    "marketOpen": "Market open",
+    "marketClosed": "Market closed",
+    "themeDark": "Dark",
+    "themeLight": "Light"
+  },
+  "nav": {
+    "watchlist": "Watchlist",
+    "screener": "Screener",
+    "compare": "Compare",
+    "valuation": "Valuation",
+    "financials": "Financials"
+  },
+  "score": {
+    "strong": "Strong",
+    "good": "Good",
+    "fair": "Fair",
+    "weak": "Weak",
+    "poor": "Poor"
+  },
+  "pillar": {
+    "value": "Value",
+    "growth": "Growth",
+    "health": "Health",
+    "momentum": "Momentum",
+    "composite": "Composite"
+  },
+  "cols": {
+    "company": "Company",
+    "price": "Price",
+    "chg": "Chg",
+    "thirtyD": "30d",
+    "cap": "Mkt Cap",
+    "pe": "P/E",
+    "peg": "PEG",
+    "div": "Div",
+    "roe": "ROE",
+    "rev": "Rev gr.",
+    "value": "Value",
+    "growth": "Growth",
+    "score": "Score"
+  },
+  "metric": {
+    "price": "Price",
+    "chgToday": "Chg today",
+    "marketCap": "Market cap",
+    "beta": "Beta",
+    "peTtm": "P/E (ttm)",
+    "fwdPe": "Forward P/E",
+    "peg": "PEG",
+    "pb": "P/B",
+    "ps": "P/S",
+    "evEbitda": "EV/EBITDA",
+    "fcfYield": "FCF yield",
+    "divYield": "Div yield",
+    "roe": "ROE",
+    "roic": "ROIC",
+    "grossMargin": "Gross margin",
+    "opMarginShort": "Oper. margin",
+    "operatingMargin": "Operating margin",
+    "netMargin": "Net margin",
+    "revGrowth": "Revenue growth",
+    "revGrowthShort": "Rev growth",
+    "epsGrowth": "EPS growth",
+    "debtEq": "Debt / equity",
+    "currentRatio": "Current ratio",
+    "employees": "Employees",
+    "prevClose": "Prev close"
+  },
+  "watchlist": {
+    "title": "Watchlist",
+    "subtitle": "{{count}} companies tracked · NYSE / NASDAQ / TSX / LSE",
+    "empty": "Your watchlist is empty. Add companies from the Screener or search.",
+    "avgScore": "Avg composite score",
+    "advancing": "Advancing today",
+    "declining": "{{count}} declining",
+    "topMover": "Top mover",
+    "laggard": "Laggard",
+    "footer": "Click any row to open the company. Scores: Value 35% · Growth 30% · Health 20% · Momentum 15% (percentiles by market)."
+  },
+  "company": {
+    "notFound": "Company not found",
+    "noPriceData": "No price data",
+    "noData": "No data",
+    "today": "today",
+    "actions": {
+      "dcf": "DCF",
+      "financials": "Financials",
+      "compare": "Compare",
+      "watch": "Watch",
+      "watching": "Watching"
+    },
+    "group": {
+      "valuation": "Valuation",
+      "profitability": "Profitability",
+      "growthRisk": "Growth & risk"
+    },
+    "card": {
+      "price": "Price",
+      "composite": "Composite score",
+      "revenue": "Revenue ($B)",
+      "snapshot": "Snapshot",
+      "about": "About"
+    },
+    "composite": {
+      "overall": "overall.",
+      "blend": "Weighted blend of value, growth, balance-sheet health and price momentum."
+    },
+    "scoreSub": {
+      "value": "ratios",
+      "growth": "rev, EPS",
+      "health": "balance",
+      "momentum": "price"
+    },
+    "snapshot": {
+      "range52": "52-wk range",
+      "prevClose": "Prev close",
+      "marketCap": "Market cap",
+      "divYield": "Dividend yield"
+    }
+  },
+  "screener": {
+    "title": "Screener",
+    "matches": "{{count}} matches",
+    "showingFirst": " · showing first {{count}}",
+    "activeFilters_one": " · {{count}} active filter",
+    "activeFilters_other": " · {{count}} active filters",
+    "noFilters": " · no filters",
+    "resetAll": "Reset all",
+    "factorPresets": "Factor presets",
+    "filtersHeading": "Filters",
+    "noMatch": "No companies match these filters. Loosen a constraint.",
+    "preset": {
+      "allStocks": "All stocks",
+      "deepValue": "Deep value",
+      "garp": "GARP",
+      "qualityGrowth": "Quality growth",
+      "dividend": "Dividend",
+      "highMomentum": "High momentum",
+      "custom": "Custom"
+    },
+    "filter": {
+      "capMin": "Market cap ≥",
+      "peMax": "P/E ≤",
+      "pegMax": "PEG ≤",
+      "pbMax": "P/B ≤",
+      "divMin": "Div yield ≥",
+      "roeMin": "ROE ≥",
+      "growthRevMin": "Rev growth ≥",
+      "valueMin": "Value score ≥",
+      "growthMin": "Growth score ≥",
+      "healthMin": "Health score ≥",
+      "momentumMin": "Momentum ≥"
+    }
+  },
+  "compare": {
+    "title": "Compare",
+    "subtitle": "{{count}} companies side by side · best value per metric highlighted",
+    "metric": "Metric",
+    "scores": "Scores",
+    "group": {
+      "price": "Price",
+      "valuation": "Valuation",
+      "profitabilityGrowth": "Profitability & growth"
+    }
+  },
+  "valuation": {
+    "title": "Valuation — DCF",
+    "subtitle": "Discounted cash-flow model · adjust assumptions, fair value updates live",
+    "unavailable": "DCF unavailable: missing market cap or price.",
+    "assumptions": "Assumptions",
+    "intrinsic": "Intrinsic value / share",
+    "currentPrice": "Current price",
+    "upside": "Upside / downside",
+    "verdict": {
+      "under": "Undervalued",
+      "over": "Overvalued",
+      "fair": "Fairly valued"
+    },
+    "input": {
+      "fcfLabel": "Starting FCF",
+      "fcfHint": "Trailing free cash flow",
+      "growthLabel": "FCF growth (yrs 1–N)",
+      "growthHint": "Annual growth during forecast",
+      "yearsLabel": "Forecast years",
+      "terminalLabel": "Terminal growth",
+      "terminalHint": "Perpetual growth after forecast",
+      "waccLabel": "Discount rate (WACC)",
+      "waccHint": "Required return / cost of capital",
+      "netDebtLabel": "Net debt",
+      "netDebtHint": "Debt minus cash (negative = net cash)"
+    },
+    "bridge": {
+      "title": "Enterprise → equity bridge",
+      "pvFcf": "PV of forecast FCF",
+      "pvTv": "PV of terminal value",
+      "pctOfEv": "{{pct}}% of EV",
+      "ev": "Enterprise value",
+      "equity": "Equity value",
+      "netDebtSub": "− {{cap}} net debt"
+    },
+    "fcfBars": {
+      "pv": "Present value",
+      "undiscounted": "Undiscounted FCF"
+    },
+    "sensitivity": {
+      "title": "Sensitivity — fair value ($/share)",
+      "header": "WACC ↓ / term →"
+    },
+    "fxNote": "Revenue converted from {{from}} to {{to}} (FX) to match the price.",
+    "disclaimer": "Illustrative model on real data (yfinance). A DCF is only as good as its assumptions — use the sensitivity grid to see how fragile the output is to WACC and terminal growth."
+  },
+  "financials": {
+    "title": "Financial statements",
+    "subtitle": "{{name}} · annual history ({{cur}}B except EPS)",
+    "convertedFrom": " · converted from {{from}}",
+    "subFallback": "Financial statements",
+    "noStatements": "No financial statements available",
+    "tab": {
+      "income": "Income statement",
+      "balance": "Balance sheet",
+      "cashflow": "Cash flow"
+    },
+    "col": {
+      "lineItem": "Line item",
+      "trend": "Trend",
+      "cagr": "CAGR"
+    },
+    "row": {
+      "revenue": "Revenue",
+      "cogs": "Cost of revenue",
+      "grossProfit": "Gross profit",
+      "opex": "Operating expenses",
+      "opInc": "Operating income",
+      "netInc": "Net income",
+      "eps": "Diluted EPS",
+      "cash": "Cash & equivalents",
+      "assets": "Total assets",
+      "debt": "Total debt",
+      "liab": "Total liabilities",
+      "equity": "Shareholders' equity",
+      "opCF": "Operating cash flow",
+      "capex": "Capital expenditure",
+      "fcf": "Free cash flow"
+    },
+    "ministat": {
+      "revenueCagr": "Revenue CAGR",
+      "equityCagr": "Equity CAGR",
+      "fcfMargin": "FCF margin",
+      "capexRev": "Capex / rev",
+      "fcfCagr": "FCF CAGR"
+    }
+  }
+}

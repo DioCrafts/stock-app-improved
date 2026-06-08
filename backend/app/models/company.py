@@ -61,9 +61,10 @@ class Company(BaseModel):
     currentRatio: float | None = None
     # Scores (None hasta Fase 5: la metodología de los sub-scores no es determinable)
     scores: Scores | None = None
-    # Series (la serie de precios `hist` se sirve aparte en /companies/{ticker}/prices)
+    # Series (la serie de precios `hist` completa se sirve aparte en /companies/{ticker}/prices)
     revenue: list[float] = []       # $B, oldest→newest
     revenueYears: list[int] = []    # años correspondientes a `revenue` (mismo orden)
+    spark: list[float] = []         # cierres recientes (~1 mes, oldest→newest) para el mini-sparkline del listado
 
 
 class SearchHit(BaseModel):
