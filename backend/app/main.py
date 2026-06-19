@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db.schema import connect, init_db
-from app.routers import companies, financials, market, prices, screener, search
+from app.routers import companies, financials, insiders, market, prices, screener, search
 
 
 @asynccontextmanager
@@ -50,6 +50,7 @@ app.add_middleware(
 app.include_router(companies.router)
 app.include_router(prices.router)
 app.include_router(financials.router)
+app.include_router(insiders.router)
 app.include_router(screener.router)
 app.include_router(search.router)
 app.include_router(market.router)

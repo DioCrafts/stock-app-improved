@@ -263,5 +263,31 @@
       "capexRev": "Capex / ingr.",
       "fcfCagr": "TACC FCF"
     }
+  },
+  "insider": {
+    "title": "Actividad de insiders",
+    "none": "Sin datos de insiders (solo US / SEC)",
+    "noRecent": "Sin operaciones recientes",
+    "net": "Neto",
+    "buys": "Compras",
+    "sells": "Ventas",
+    "cluster": "Compra coordinada",
+    "footer": "Los totales cuentan compras/ventas de mercado abierto (códigos P/S). Fuente: SEC Form 3/4/5.",
+    "col": {
+      "date": "Fecha",
+      "insider": "Insider",
+      "type": "Tipo",
+      "shares": "Acciones",
+      "value": "Valor"
+    },
+    "action": {
+      "buy": "Compra",
+      "sell": "Venta",
+      "grant": "Concesión",
+      "exercise": "Ejercicio",
+      "tax": "Impuestos",
+      "gift": "Donación",
+      "other": "Otro"
+    }
   }
 }

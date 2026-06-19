@@ -242,6 +242,8 @@ function CompanyOverview({ ticker, go, watch, toggleWatch }) {
             </Card>
           ))}
 
+          <InsiderActivity ticker={c.ticker} />
+
           <Card title={t("company.card.about")} pad={16}>
             <p style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.6, textWrap: "pretty" }}>{c.desc || "—"}</p>
           </Card>
@@ -323,6 +325,108 @@ function RevenueBars({ data, years }) {
         </div>
       ))}
     </div>
+  );
+}
+
+/* =================== INSIDER ACTIVITY (SEC Form 3/4/5, solo US) =================== */
+const INSIDER_WINDOWS = [{ k: "3M", d: 90 }, { k: "6M", d: 180 }, { k: "1Y", d: 365 }];
+const ACTION_TONE = { buy: "up", sell: "down" };
+const ITh = { padding: "8px 12px", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "center", color: "var(--text-3)" };
+const ITd = { padding: "8px 12px", textAlign: "center" };
+
+// Importe en millones → texto con signo; pasa a B por encima de mil. Divisa configurable.
+function fmtM(n, cur = "$") {
+  if (n == null) return "—";
+  const a = Math.abs(n);
+  const sign = n > 0 ? "+" : n < 0 ? "−" : "";
+  if (a >= 1000) return sign + cur + (a / 1000).toFixed(2) + "B";
+  return sign + cur + a.toFixed(a >= 100 ? 0 : 1) + "M";
+}
+
+function InsiderStat({ label, value, color, sub, border }) {
+  return (
+    <div style={{ padding: "12px 16px", borderLeft: border ? "1px solid var(--border)" : "none", borderRight: border ? "1px solid var(--border)" : "none" }}>
+      <div style={{ fontSize: 10.5, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>{label}</div>
+      <div className="mono tnum" style={{ fontSize: 18, fontWeight: 600, color }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>{sub}</div>}
+    </div>
+  );
+}
+
+function InsiderActivity({ ticker }) {
+  const { t } = useTranslation();
+  const [days, setDays] = useState(180);
+  const { loading, data } = useAsync(() => api.insiders(ticker), [ticker]);
+
+  if (loading) return <Card title={t("insider.title")} pad={16}><Loading /></Card>;
+
+  const windows = data?.windows || [];
+  const txns = data?.transactions || [];
+  const hasAny = windows.some((w) => w.buys || w.sells) || txns.length > 0;
+  if (!hasAny) return <Card title={t("insider.title")} pad={16}><Empty label={t("insider.none")} /></Card>;
+
+  const w = windows.find((x) => x.days === days) || windows[0];
+  const netColor = w?.netValue > 0 ? "var(--up)" : w?.netValue < 0 ? "var(--down)" : "var(--text)";
+  const cur = data?.currency === "GBP" ? "£" : "$";   // £ para UK (NSM), $ para US (SEC)
+
+  return (
+    <Card title={t("insider.title")} pad={0}
+      action={<div style={{ display: "flex", gap: 4 }}>
+        {INSIDER_WINDOWS.map((win) => (
+          <button key={win.d} onClick={() => setDays(win.d)} className="mono"
+            style={{
+              fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 5,
+              color: days === win.d ? "var(--text)" : "var(--text-3)",
+              background: days === win.d ? "var(--surface-2)" : "transparent",
+            }}>{win.k}</button>
+        ))}
+      </div>}>
+      {/* franja resumen de la ventana elegida */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", borderBottom: "1px solid var(--border)" }}>
+        <InsiderStat label={t("insider.net")} value={fmtM(w?.netValue, cur)} color={netColor}
+          sub={w?.cluster ? t("insider.cluster") : null} />
+        <InsiderStat label={t("insider.buys")} value={w?.buys ?? 0} color="var(--up)" sub={fmtM(w?.buyValue, cur)} border />
+        <InsiderStat label={t("insider.sells")} value={w?.sells ?? 0} color="var(--down)" sub={fmtM(w?.sellValue, cur)} />
+      </div>
+
+      {/* operaciones recientes */}
+      {txns.length === 0 ? (
+        <div style={{ padding: 16 }}><Empty label={t("insider.noRecent")} /></div>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead>
+              <tr>
+                <th style={ITh}>{t("insider.col.date")}</th>
+                <th style={{ ...ITh, textAlign: "left" }}>{t("insider.col.insider")}</th>
+                <th style={ITh}>{t("insider.col.type")}</th>
+                <th style={{ ...ITh, textAlign: "right" }}>{t("insider.col.shares")}</th>
+                <th style={{ ...ITh, textAlign: "right" }}>{t("insider.col.value")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {txns.slice(0, 12).map((x, i) => (
+                <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
+                  <td style={ITd}><span className="mono" style={{ color: "var(--text-3)" }}>{x.date || "—"}</span></td>
+                  <td style={{ ...ITd, textAlign: "left", maxWidth: 160 }}>
+                    <div style={{ fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{x.filer}</div>
+                    {x.relationship && <div style={{ fontSize: 10.5, color: "var(--text-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{x.relationship}</div>}
+                  </td>
+                  <td style={{ ...ITd }}>
+                    <Pill tone={ACTION_TONE[x.action] || "neutral"}>{t("insider.action." + x.action, x.code || x.action)}</Pill>
+                  </td>
+                  <td style={{ ...ITd, textAlign: "right" }}><span className="mono tnum">{x.shares != null ? fmt.num(x.shares, 0) : "—"}</span></td>
+                  <td style={{ ...ITd, textAlign: "right" }}><span className="mono tnum" style={{ color: "var(--text-2)" }}>{fmtM(x.value, cur)}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div style={{ padding: "10px 16px", fontSize: 10.5, color: "var(--text-3)", borderTop: "1px solid var(--border)" }}>
+        {t("insider.footer")}
+      </div>
+    </Card>
   );
 }
 

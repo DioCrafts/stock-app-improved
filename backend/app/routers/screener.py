@@ -27,6 +27,8 @@ def screen(
     growthMin: int | None = Query(None, description="Growth score ≥"),
     healthMin: int | None = Query(None, description="Health score ≥"),
     momentumMin: int | None = Query(None, description="Momentum score ≥"),
+    insiderNetMin: float | None = Query(None, description="Compra neta insiders 6m ≥ ($M, solo US)"),
+    insiderBuysMin: int | None = Query(None, description="Nº de compras de insiders 6m ≥ (solo US)"),
     sort: str = Query("composite"),
     order: str = Query("desc"),
     limit: int = Query(50, ge=1, le=200),
@@ -37,6 +39,7 @@ def screen(
         "divMin": divMin, "roeMin": roeMin, "growthRevMin": growthRevMin,
         "valueMin": valueMin, "growthMin": growthMin, "healthMin": healthMin,
         "momentumMin": momentumMin,
+        "insiderNetMin": insiderNetMin, "insiderBuysMin": insiderBuysMin,
     }
     filters = {k: v for k, v in filters.items() if v is not None}
     return screener_service.screen(filters, sort, order, limit, offset)
