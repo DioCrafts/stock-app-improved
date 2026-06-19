@@ -105,44 +105,91 @@ def _to_float(s: str | None) -> float | None:
         return None
 
 
-def _finalize_pv(shares: float, price: float, pence: bool) -> tuple[float, float]:
-    return (round(shares, 4), round(price / 100 if pence else price, 6))
+def _clean_money(seg: str) -> str:
+    """Corrige artefactos de Word: '£ 100' → '£100' y '0. 76' → '0.76'."""
+    seg = re.sub(r"£\s+", "£", seg)
+    return re.sub(r"(\d)\.\s+(\d)", r"\1.\2", seg)
 
 
-def _parse_price_volume(seg: str, pence: bool) -> tuple[float | None, float | None]:
-    """(shares, price en libras) desde la sub-tabla precio/volumen. Maneja 3 variantes
-    de plantilla MAR y agrega filas (VWAP). None si ninguna casa (los recuentos no se ven
-    afectados)."""
-    # 1) LSEG estándar: '<precio> GBP <volumen> <total> GBP'
-    triplets = re.findall(
-        r"([\d,]+(?:\.\d+)?)\s*GB[PX]\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s*GB[PX]",
-        seg, re.I)
+# Unidades de precio (orden: la más específica primero). p/pence/gbx = peniques.
+_PRICE_UNIT = r"(?:pence per share|pence|gbx|gbp|p|£)"
+
+
+def _unit_pence(u: str) -> bool:
+    u = u.strip().lower()
+    return u in ("p", "pence", "gbx") or u.startswith("pence")
+
+
+def _rows_suffix(region: str) -> tuple[float, float]:
+    """Filas 'precio<unidad> volumen' (divisa sufijo): 60p 15,000 · 11.66 GBP 1,574 ·
+    4412 pence per share 1,127 · 0.1p Volume: 1,000,000."""
     vol = val = 0.0
-    for _p, v, total in triplets:
-        vv, tt = _to_float(v), _to_float(total)
-        if vv and tt:
-            vol += vv
-            val += tt
-    if vol and val:
-        return _finalize_pv(vol, val / vol, pence)
+    for m in re.finditer(rf"([\d][\d,]*(?:\.\d+)?)\s*({_PRICE_UNIT})\s+(?:volume\s*:?\s*)?"
+                         rf"([\d][\d,]*(?:\.\d+)?)", region, re.I):
+        price, qty = _to_float(m.group(1)), _to_float(m.group(3))
+        if price is None or not qty:
+            continue
+        pounds = price / 100 if _unit_pence(m.group(2)) else price
+        vol += qty
+        val += pounds * qty
+    return vol, val
 
-    # 2) Multi-fill con divisa pegada al precio: 'GBP<precio> <volumen>' por ejecución
-    pairs = re.findall(r"GB[PX]\s*([\d,]+\.\d+)\s+([\d,]+(?:\.\d+)?)", seg, re.I)
+
+def _rows_prefix(region: str) -> tuple[float, float]:
+    """Filas 'unidad precio volumen' (divisa pegada al precio): GBP1.0348 718,013 · £0.76 132,000."""
     vol = val = 0.0
-    for p, v in pairs:
-        pp, vv = _to_float(p), _to_float(v)
-        if pp is not None and vv:
-            vol += vv
-            val += pp * vv
-    if vol and val:
-        return _finalize_pv(vol, val / vol, pence)
+    for m in re.finditer(r"(£|gbp|gbx)\s*([\d][\d,]*(?:\.\d+)?)\s+(?:volume\s*:?\s*)?"
+                         r"([\d][\d,]*(?:\.\d+)?)", region, re.I):
+        price, qty = _to_float(m.group(2)), _to_float(m.group(3))
+        if price is None or not qty:
+            continue
+        pounds = price / 100 if m.group(1).lower() == "gbx" else price
+        vol += qty
+        val += pounds * qty
+    return vol, val
 
-    # 3) Sección 'Aggregated information': '<volumen agregado> GBP<precio medio>'
-    m = re.search(r"Aggregated[^\d]*([\d,]+(?:\.\d+)?)\s*GB[PX]\s*([\d.]+)", seg, re.I)
+
+def _parse_price_volume(seg: str) -> tuple[float | None, float | None]:
+    """(shares, precio en libras) desde la tabla precio/volumen, agregando filas (VWAP).
+
+    Cubre las variantes de plantilla MAR vistas en el NSM (HTML de Word):
+    estándar LSEG '<precio> GBP <vol> <total> GBP' (incl. multi-fila vía total), divisa
+    pegada 'GBP1.0348 <vol>' / '£0.76 <vol>', peniques '60p'/'13.5 pence'/'4412 pence per
+    share', volumen etiquetado 'Volume: <n>' y precio nulo ('Nil'/'GBP 0.00'). (None, None)
+    si no casa (no afecta a los recuentos). A propósito quedan sin importe: texto libre
+    ('price of 13.5 pence per share') y divisa extranjera (USD/ZAR de cotizaciones duales),
+    porque convertirla a £ falsearía los agregados."""
+    seg = _clean_money(seg)
+    pm = re.search(r"Price\s*\(?s?\)?\s*(?:&|and)?\s*[Vv]olume|Exercise price|Price\s*[:&]",
+                   seg, re.I)
+    region = re.split(r"Aggregated", seg[pm.start():] if pm else seg, maxsplit=1, flags=re.I)[0]
+
+    # 1) Estándar '<precio> GBP <vol> <total> GBP' (multi-fila correcto vía total)
+    pence_std = "GBX" in region
+    vol = val = 0.0
+    for _p, qty, total in re.findall(
+            r"([\d,]+(?:\.\d+)?)\s+GB[PX]\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s*GB[PX]",
+            region, re.I):
+        qf, tf = _to_float(qty), _to_float(total)
+        if qf and tf:
+            vol += qf
+            val += tf
+    if vol and val:
+        return (round(vol, 4), round((val / vol) / (100 if pence_std else 1), 6))
+
+    # 2) Filas con unidad (prefijo si la divisa va pegada al número; si no, sufijo)
+    vol, val = (_rows_prefix(region) if re.search(r"(?:£|GBP|GBX)\d", region, re.I)
+                else _rows_suffix(region))
+    if vol and val:
+        return (round(vol, 4), round(val / vol, 6))
+
+    # 3) Precio nulo (ejercicios/concesiones sin coste): 'Nil <vol>' / 'GBP 0.00 <vol>'
+    m = re.search(r"(?:nil|gbp\s*0\.0+|£\s*0\.0+|0\.0+\s*gb[px])\s+(?:volume\s*:?\s*)?"
+                  r"([\d][\d,]*)", region, re.I)
     if m:
-        vv, pp = _to_float(m.group(1)), _to_float(m.group(2))
-        if vv and pp is not None:
-            return _finalize_pv(vv, pp, pence)
+        qty = _to_float(m.group(1))
+        if qty:
+            return (round(qty, 4), 0.0)
     return (None, None)
 
 
@@ -191,14 +238,10 @@ def parse_nsm_document(html: str, *, symbol: str | None = None, company: str | N
     nature = nat.group(1).strip(" :.-") if nat else None
     action, code = nature_to_action(nature)
 
-    cur_m = re.search(r"Currency\s*:?\s*([A-Za-z]{3})", sec4)
-    cur = cur_m.group(1) if cur_m else "GBP"
-    pence = cur.upper() == "GBX" or cur == "GBp" or "GBX" in sec4 or "pence" in sec4.lower()
-
-    # Precio/volumen: toda la sección 4 hasta la fecha/lugar (cubre varias etiquetas de tabla)
+    # Precio/volumen: sección 4 hasta la fecha/lugar (la unidad por fila decide £ vs peniques)
     pv_seg = re.split(r"Date of (?:the )?transaction|Place of (?:the )?transaction",
                       sec4, maxsplit=1, flags=re.I)[0]
-    shares, price = _parse_price_volume(pv_seg, pence)
+    shares, price = _parse_price_volume(pv_seg)
 
     dt = re.search(r"Date of (?:the )?transaction\s*:?\s*"
                    r"(\d{4}\s*-\s*\d{1,2}\s*-\s*\d{1,2}|\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4}|"

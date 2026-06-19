@@ -4,6 +4,7 @@ Las fixtures replican la plantilla estándar MAR (Reglamento UE 2016/523) tal co
 aparece en los documentos reales del NSM (HTML exportado de Word).
 """
 from app.ingest.nsm_mappers import (
+    _parse_price_volume,
     nature_to_action,
     normalize_company_name,
     parse_nsm_document,
@@ -78,6 +79,40 @@ def test_nature_mapping():
     assert nature_to_action("Option exercise and hold") == ("exercise", "M")
     assert nature_to_action("Vesting of conditional award") == ("grant", "A")
     assert nature_to_action("Sale of sufficient shares to cover tax") == ("tax", "F")
+
+
+def test_price_volume_variants():
+    """Variantes reales de tabla precio/volumen observadas en el NSM (HTML de Word)."""
+    P = "Price(s) and volume(s) Price(s) Volume(s) "
+
+    def chk(seg, exp_shares, exp_price, ndig=3):
+        sh, px = _parse_price_volume(seg)
+        assert sh == exp_shares, (seg, sh)
+        assert px is not None and round(px, ndig) == exp_price, (seg, px)
+
+    # Estándar LSEG '<precio> GBP <vol> <total> GBP' (precio = total/vol)
+    chk("Price & volume Price Volume Total 11.66 GBP 1,574.00 18,352.84 GBP", 1574.0, 11.66, 2)
+    # Estándar multi-fila → suma volúmenes y totales
+    chk("Price Volume Total 10.00 GBP 100 1000.00 GBP 20.00 GBP 100 2000.00 GBP", 200.0, 15.0, 1)
+    # Peniques estándar (GBX) → libras
+    chk("Price Volume Total 500.00 GBX 2,000.00 1,000,000.00 GBX", 2000.0, 5.0, 1)
+    # Divisa pegada al precio, multi-fill (estilo banco): VWAP
+    chk(P + "GBP1.034890 718,013 GBP1.034608 524,426", 1242439.0, 1.035)
+    # Símbolo £ con artefactos de espacio de Word ('£ 0. 763938')
+    chk(P + "£ 0. 763938 132,000", 132000.0, 0.764)
+    # Peniques con sufijo 'p' y columna de fecha, multi-fila
+    chk(P + "17 June 2026 60p 15,000 18 June 2026 62p 9,555", 24555.0, 0.608)
+    # 'pence per share'
+    chk(P + "4412 pence per share 1,127", 1127.0, 44.12, 2)
+    # Precio de ejercicio etiquetado + 'Volume:' etiquetado
+    chk("Exercise price: 0.1p Volume: 1,000,000", 1000000.0, 0.001)
+    # Precio nulo (ejercicio/concesión sin coste) → precio £0, volumen conocido
+    chk(P + "Nil 922", 922.0, 0.0)
+    chk(P + "GBP 0.00 1,681,200", 1681200.0, 0.0)
+    # Sin tabla parseable → (None, None) (no rompe; los recuentos siguen)
+    assert _parse_price_volume("price of 13.5 pence per share in the market") == (None, None)
+    # Divisa extranjera (USD/ZAR de cotizaciones duales) → None a propósito (no falsear £)
+    assert _parse_price_volume(P + "US$63.009 2,000")[1] is None
 
 
 def test_parse_feeds_metrics():
