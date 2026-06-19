@@ -28,6 +28,7 @@ export const api = {
   company: (ticker) => get(`/companies/${encodeURIComponent(ticker)}`),
   prices: (ticker, range = "1Y") => get(`/companies/${encodeURIComponent(ticker)}/prices`, { range }),
   financials: (ticker) => get(`/companies/${encodeURIComponent(ticker)}/financials`),
+  insiders: (ticker, limit = 60) => get(`/companies/${encodeURIComponent(ticker)}/insiders`, { limit }),
   screen: (params) => get("/screener", params),
   search: (q, limit = 8) => get("/search", { q, limit }),
   indices: () => get("/market/indices"),

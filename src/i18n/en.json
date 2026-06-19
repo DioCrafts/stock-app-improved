@@ -263,5 +263,31 @@
       "capexRev": "Capex / rev",
       "fcfCagr": "FCF CAGR"
     }
+  },
+  "insider": {
+    "title": "Insider activity",
+    "none": "No insider data (US / SEC only)",
+    "noRecent": "No recent transactions",
+    "net": "Net",
+    "buys": "Buys",
+    "sells": "Sells",
+    "cluster": "Cluster buying",
+    "footer": "Open-market buys/sells (codes P/S) drive the totals. Source: SEC Form 3/4/5.",
+    "col": {
+      "date": "Date",
+      "insider": "Insider",
+      "type": "Type",
+      "shares": "Shares",
+      "value": "Value"
+    },
+    "action": {
+      "buy": "Buy",
+      "sell": "Sell",
+      "grant": "Grant",
+      "exercise": "Exercise",
+      "tax": "Tax",
+      "gift": "Gift",
+      "other": "Other"
+    }
   }
 }

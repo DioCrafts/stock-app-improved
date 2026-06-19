@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     universe_scope: str = "equities"  # equities | all
     uk_gbp_only: bool = True  # UK: solo empresas en GBP (excluir cross-listings extranjeros)
 
+    # Insiders (SEC EDGAR, solo US). La SEC exige un User-Agent identificable con
+    # contacto/email por su política de "fair access" → pon el tuyo en SEC_USER_AGENT.
+    sec_user_agent: str = "stock-app-improved insider-research (admin@example.com)"
+    insider_max_filings: int = 60      # nº de Form 4 recientes a leer por empresa (incremental)
+    insider_refresh_cron: str = "30 7 * * *"  # cron del refresco diario de insiders
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

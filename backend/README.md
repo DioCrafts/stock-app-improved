@@ -1,6 +1,7 @@
 # Backend — Equity Research Terminal
 
-API FastAPI que sustituye el mock de `src/data.js`, ingiriendo datos con **yfinance**.
+API FastAPI que sustituye el mock de `src/data.js`, ingiriendo datos con **yfinance**
+(fundamentales/precios) y **SEC EDGAR** (actividad de insiders, solo US).
 Mercados contemplados: **EE.UU., Canadá y Reino Unido**.
 Diseño completo en [../ARQUITECTURA-BACKEND.md](../ARQUITECTURA-BACKEND.md).
 
@@ -30,11 +31,31 @@ app/
   routers/       # un archivo por área de la UI
   services/      # lógica de negocio (orquesta ingest + scoring + db)
   universe/      # descubrimiento de tickers US/CA/UK
-  ingest/        # ÚNICO punto que conoce yfinance
-  db/            # persistencia SQLite (snapshot del universo)
+  ingest/        # ÚNICO punto que conoce las APIs externas (yfinance, SEC EDGAR)
+  db/            # persistencia SQLite (snapshot del universo + insiders)
   jobs/          # ingesta batch programada
   cache/         # caché TTL en disco
 tests/
 ```
 
-> Estado: **Fase 0/1** (scaffold). Cada módulo declara en su docstring la fase en la que se implementa.
+## Insiders (SEC EDGAR — solo US)
+
+Actividad de insiders (Section 16, Form 3/4/5): compras/ventas de directivos, consejeros
+y accionistas >10%. Dos fuentes oficiales y gratuitas, ambas en `ingest/edgar_client.py`
+(parsers puros en `ingest/insider_mappers.py`):
+
+- **Incremental** (submissions API + XML del Form 4) — refresco diario.
+- **Backfill histórico** (datasets trimestrales DERA "Form 345").
+
+```bash
+uv run python -m app.jobs.refresh_insiders              # incremental (todos los US)
+uv run python -m app.jobs.refresh_insiders --limit 50   # smoke test (50 tickers)
+uv run python -m app.jobs.refresh_insiders --backfill 2025q1   # backfill un trimestre
+```
+
+> ⚠️ La SEC exige un **User-Agent identificable con tu email** (política de *fair access*):
+> configúralo en `SEC_USER_AGENT` o EDGAR puede devolver `403`.
+
+Endpoint: `GET /companies/{ticker}/insiders` → resumen por ventanas (30/90/180/365 d) +
+operaciones recientes. Filtros de screener: `insiderNetMin` (compra neta 6m, $M) y
+`insiderBuysMin`. Para tickers no-US (UK/CA) el bundle viene vacío (no hay equivalente SEC).

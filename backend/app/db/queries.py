@@ -138,6 +138,76 @@ def snapshots_by_symbols(conn: sqlite3.Connection, symbols: list[str]) -> dict[s
     return {r["symbol"]: r["data"] for r in rows}
 
 
+# ---- insiders (SEC Form 3/4/5, solo US) ----
+
+_INSIDER_TXN_COLS = (
+    "symbol", "cik", "accession", "filer", "relationship", "txn_date", "code", "action",
+    "shares", "price", "shares_after", "ownership", "is_derivative", "source", "url",
+)
+
+
+def upsert_insider_transactions(conn: sqlite3.Connection, rows: list[dict]) -> int:
+    """Inserta transacciones de insiders (INSERT OR IGNORE → dedup por UNIQUE).
+    Devuelve cuántas filas nuevas se insertaron."""
+    if not rows:
+        return 0
+    placeholders = ", ".join(f":{c}" for c in _INSIDER_TXN_COLS)
+    cols = ", ".join(_INSIDER_TXN_COLS)
+    before = conn.total_changes
+    conn.executemany(
+        f"INSERT OR IGNORE INTO insider_transaction ({cols}, updated_at) "
+        f"VALUES ({placeholders}, datetime('now'))",
+        rows,
+    )
+    conn.commit()
+    return conn.total_changes - before
+
+
+def insider_transactions_for(conn: sqlite3.Connection, symbol: str, limit: int = 100) -> list[dict]:
+    rows = conn.execute(
+        "SELECT * FROM insider_transaction WHERE symbol = ? ORDER BY txn_date DESC LIMIT ?",
+        (symbol, limit),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def transactions_for_summary(conn: sqlite3.Connection, symbol: str) -> list[dict]:
+    """Campos mínimos para recalcular agregados (los lee insider_metrics.summarize)."""
+    rows = conn.execute(
+        "SELECT txn_date, code, shares, price, filer FROM insider_transaction WHERE symbol = ?",
+        (symbol,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def distinct_insider_symbols(conn: sqlite3.Connection) -> list[str]:
+    cur = conn.execute("SELECT DISTINCT symbol FROM insider_transaction ORDER BY symbol")
+    return [r["symbol"] for r in cur.fetchall()]
+
+
+def upsert_insider_summary(conn: sqlite3.Connection, row: dict) -> None:
+    conn.execute(
+        "INSERT OR REPLACE INTO insider_summary "
+        "(symbol, buys_6m, sells_6m, net_value_6m, last_txn_date, data, updated_at) "
+        "VALUES (:symbol, :buys_6m, :sells_6m, :net_value_6m, :last_txn_date, :data, datetime('now'))",
+        row,
+    )
+    conn.commit()
+
+
+def get_insider_summary(conn: sqlite3.Connection, symbol: str) -> dict | None:
+    row = conn.execute("SELECT * FROM insider_summary WHERE symbol = ?", (symbol,)).fetchone()
+    return dict(row) if row else None
+
+
+def us_symbols(conn: sqlite3.Connection, limit: int | None = None) -> list[str]:
+    """Símbolos US del universo (la actividad de insiders SEC es solo US)."""
+    sql = "SELECT symbol FROM universe WHERE market = 'US' ORDER BY symbol"
+    if limit:
+        sql += f" LIMIT {int(limit)}"
+    return [r["symbol"] for r in conn.execute(sql).fetchall()]
+
+
 def rebuild_universe_fts(conn: sqlite3.Connection) -> None:
     """Reconstruye el índice FTS5 de búsqueda a partir de `universe` (L7)."""
     conn.execute("DELETE FROM universe_fts")
@@ -192,23 +262,28 @@ _SCREEN_FILTERS = {
     "healthMin": ("score_health", ">="),
     "momentumMin": ("score_momentum", ">="),
 }
-# Claves de orden del front → columna
+# Claves de orden del front → expresión SQL ("symbol"/"insider" se cualifican por el JOIN)
 _SORT_COLS = {
     "composite": "score_composite", "value": "score_value", "growth": "score_growth",
     "marketCap": "market_cap", "pe": "pe", "peg": "peg", "div": "div_yield",
-    "roe": "roe", "rev": "rev_growth", "price": "price", "ticker": "symbol",
+    "roe": "roe", "rev": "rev_growth", "price": "price", "ticker": "company_snapshot.symbol",
+    "insider": "isum.net_value_6m",
+}
+# Filtros de insiders → (columna en insider_summary, operador). Activan un JOIN.
+_INSIDER_FILTERS = {
+    "insiderNetMin": ("isum.net_value_6m", ">="),   # neto comprado últimos 6m ≥ X ($M)
+    "insiderBuysMin": ("isum.buys_6m", ">="),       # nº de compras últimos 6m ≥ N
 }
 
 
 def screen(conn: sqlite3.Connection, filters: dict, sort: str = "composite",
            order: str = "desc", limit: int = 50, offset: int = 0) -> tuple[int, list[str]]:
     """Filtra el snapshot (espejo de matchPass del front: null en la columna = excluido).
-    Devuelve (total, [blobs JSON de Company])."""
+    Devuelve (total, [blobs JSON de Company]). Los filtros/orden de insiders añaden un
+    JOIN a insider_summary solo cuando se usan (el screening normal no se penaliza)."""
     sort_col = _SORT_COLS.get(sort, "score_composite")
     order_sql = "DESC" if order.lower() == "desc" else "ASC"
 
-    # Ordenar por una columna exige tenerla (NULL fuera) → permite usar índice y evita
-    # el `ORDER BY col IS NULL, col` que forzaba full scan + temp B-TREE (M5).
     where = ["status = 'ok'", f"{sort_col} IS NOT NULL"]
     params: list = []
     for key, (col, op) in _SCREEN_FILTERS.items():
@@ -216,13 +291,25 @@ def screen(conn: sqlite3.Connection, filters: dict, sort: str = "composite",
         if v is not None:
             where.append(f"{col} {op} ?")
             params.append(v)
+
+    insider_active = sort == "insider"
+    for key, (col, op) in _INSIDER_FILTERS.items():
+        v = filters.get(key)
+        if v is not None:
+            where.append(f"{col} {op} ?")
+            params.append(v)
+            insider_active = True
+
+    from_sql = "company_snapshot"
+    if insider_active:  # INNER JOIN: filtrar/ordenar por insiders exige tener resumen
+        from_sql += " JOIN insider_summary isum ON isum.symbol = company_snapshot.symbol"
     where_sql = " AND ".join(where)
 
     total = conn.execute(
-        f"SELECT COUNT(*) FROM company_snapshot WHERE {where_sql}", params
+        f"SELECT COUNT(*) FROM {from_sql} WHERE {where_sql}", params
     ).fetchone()[0]
     rows = conn.execute(
-        f"SELECT data FROM company_snapshot WHERE {where_sql} "
+        f"SELECT company_snapshot.data FROM {from_sql} WHERE {where_sql} "
         f"ORDER BY {sort_col} {order_sql} LIMIT ? OFFSET ?",
         params + [limit, offset],
     ).fetchall()
