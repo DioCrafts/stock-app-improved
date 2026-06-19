@@ -188,8 +188,9 @@ def distinct_insider_symbols(conn: sqlite3.Connection) -> list[str]:
 def upsert_insider_summary(conn: sqlite3.Connection, row: dict) -> None:
     conn.execute(
         "INSERT OR REPLACE INTO insider_summary "
-        "(symbol, buys_6m, sells_6m, net_value_6m, last_txn_date, data, updated_at) "
-        "VALUES (:symbol, :buys_6m, :sells_6m, :net_value_6m, :last_txn_date, :data, datetime('now'))",
+        "(symbol, buys_6m, sells_6m, net_value_6m, last_txn_date, currency, data, updated_at) "
+        "VALUES (:symbol, :buys_6m, :sells_6m, :net_value_6m, :last_txn_date, :currency, :data, "
+        "datetime('now'))",
         row,
     )
     conn.commit()
@@ -206,6 +207,14 @@ def us_symbols(conn: sqlite3.Connection, limit: int | None = None) -> list[str]:
     if limit:
         sql += f" LIMIT {int(limit)}"
     return [r["symbol"] for r in conn.execute(sql).fetchall()]
+
+
+def uk_universe_names(conn: sqlite3.Connection) -> list[dict]:
+    """(symbol, name) del universo UK, para casar por nombre con los avisos PDMR del NSM."""
+    rows = conn.execute(
+        "SELECT symbol, name FROM universe WHERE market = 'UK' AND name IS NOT NULL"
+    ).fetchall()
+    return [dict(r) for r in rows]
 
 
 def rebuild_universe_fts(conn: sqlite3.Connection) -> None:

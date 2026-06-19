@@ -18,11 +18,13 @@ Ejecutar manualmente:
 from __future__ import annotations
 
 import time
+from datetime import date, timedelta
 
 from app.config import settings
 from app.db import queries
 from app.db.schema import connect, init_db
-from app.ingest import edgar_client
+from app.ingest import edgar_client, nsm_client
+from app.ingest.nsm_mappers import normalize_company_name, parse_nsm_document
 from app.services.insider_service import build_summary_row
 
 
@@ -47,13 +49,13 @@ def _to_db_row(t: dict, source: str) -> dict:
     }
 
 
-def _store(conn, symbol: str, transactions: list[dict], source: str) -> int:
+def _store(conn, symbol: str, transactions: list[dict], source: str, currency: str = "USD") -> int:
     """Persiste transacciones de un símbolo y recalcula su resumen. Devuelve nuevas filas."""
     rows = [_to_db_row(t, source) for t in transactions if t.get("symbol")]
     inserted = queries.upsert_insider_transactions(conn, rows)
     txns = queries.transactions_for_summary(conn, symbol)
     if txns:
-        queries.upsert_insider_summary(conn, build_summary_row(symbol, txns))
+        queries.upsert_insider_summary(conn, build_summary_row(symbol, txns, currency))
     return inserted
 
 
@@ -129,23 +131,116 @@ def recompute_summaries(db_path: str | None = None) -> dict:
         conn.close()
 
 
+_UK_PDMR_TYPES = {"DSH"}  # Director/PDMR Shareholding (categoría principal del NSM)
+
+
+def _pub_date(src: dict) -> date | None:
+    raw = (src.get("publication_date") or "")[:10]
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return None
+
+
+def refresh_insiders_uk(since_days: int | None = None, max_pages: int | None = None,
+                        page_size: int = 100, pause: float = 0.3,
+                        db_path: str | None = None, log_every: int = 5) -> dict:
+    """Barrido del FCA NSM: notificaciones PDMR recientes → universo UK (solo .L).
+
+    Recorre páginas de avisos PDMR (orden publicación desc) hasta superar la ventana
+    `since_days`, casa la empresa con el universo por nombre, descarga y parsea el
+    documento (plantilla MAR) y persiste. Idempotente (INSERT OR IGNORE)."""
+    since_days = settings.insider_uk_since_days if since_days is None else since_days
+    max_pages = settings.insider_uk_max_pages if max_pages is None else max_pages
+    conn = connect(db_path or settings.db_path)
+    try:
+        init_db(conn)
+        name_map = {normalize_company_name(u["name"]): u["symbol"]
+                    for u in queries.uk_universe_names(conn)}
+        cutoff = date.today() - timedelta(days=since_days)
+        per_symbol: dict[str, list[dict]] = {}
+        seen: set[str] = set()
+        scanned = matched = docs = errors = 0
+        stop = False
+        for page in range(max_pages):
+            try:
+                _total, hits = nsm_client.search_pdmr_page(from_=page * page_size, size=page_size)
+            except Exception as err:  # noqa: BLE001 — fallo de búsqueda → cortar barrido
+                print(f"  ! search page {page}: {err}", flush=True)
+                break
+            if not hits:
+                break
+            for src in hits:
+                scanned += 1
+                pd = _pub_date(src)
+                if pd and pd < cutoff:
+                    stop = True
+                    continue
+                head = src.get("headline") or ""
+                if (src.get("type_code") or "").upper() not in _UK_PDMR_TYPES \
+                        and "PDMR" not in head and "Director" not in head:
+                    continue
+                symbol = name_map.get(normalize_company_name(src.get("company")))
+                link = src.get("download_link")
+                if not symbol or not link or link in seen:
+                    continue
+                seen.add(link)
+                matched += 1
+                try:
+                    html = nsm_client.fetch_artefact(link)
+                    txns = parse_nsm_document(
+                        html, symbol=symbol, company=src.get("company"), lei=src.get("lei"),
+                        accession=src.get("disclosure_id"), url=nsm_client.artefact_url(link))
+                    if txns:
+                        per_symbol.setdefault(symbol, []).extend(txns)
+                        docs += 1
+                except Exception as err:  # noqa: BLE001 — un documento roto no aborta el barrido
+                    errors += 1
+                    if errors <= 10:
+                        print(f"  ! {symbol} {link}: {err}", flush=True)
+                if pause:
+                    time.sleep(pause)
+            if (page + 1) % log_every == 0:
+                print(f"  page {page + 1}/{max_pages} scanned={scanned} matched={matched} "
+                      f"docs={docs}", flush=True)
+            if stop:
+                break
+        inserted = 0
+        for symbol, txns in per_symbol.items():
+            inserted += _store(conn, symbol, txns, source="nsm", currency="GBP")
+        return {
+            "mode": "uk-incremental",
+            "scanned": scanned, "matched": matched, "docs_parsed": docs,
+            "inserted": inserted, "symbols": len(per_symbol), "errors": errors,
+        }
+    finally:
+        conn.close()
+
+
 if __name__ == "__main__":
     import argparse
     import json
 
-    p = argparse.ArgumentParser(description="Ingesta de insiders desde SEC EDGAR (solo US).")
-    p.add_argument("--limit", type=int, default=None, help="máximo de tickers (incremental)")
-    p.add_argument("--pause", type=float, default=0.2, help="pausa (s) entre tickers")
+    p = argparse.ArgumentParser(description="Ingesta de insiders: SEC EDGAR (US) / FCA NSM (UK).")
+    p.add_argument("--market", choices=["us", "uk"], default="us", help="mercado (def. us)")
+    p.add_argument("--limit", type=int, default=None, help="US: máximo de tickers (incremental)")
+    p.add_argument("--pause", type=float, default=None, help="pausa (s) entre peticiones")
     p.add_argument("--backfill", type=str, default=None, metavar="YYYYqQ",
-                   help="cargar un trimestre DERA, p. ej. 2025q1")
+                   help="US: cargar un trimestre DERA, p. ej. 2025q1")
+    p.add_argument("--since-days", type=int, default=None, help="UK: ventana del barrido NSM")
+    p.add_argument("--max-pages", type=int, default=None, help="UK: tope de páginas del barrido")
     p.add_argument("--summaries-only", action="store_true", help="solo recalcular resúmenes")
     args = p.parse_args()
 
     if args.summaries_only:
         summary = recompute_summaries()
+    elif args.market == "uk":
+        summary = refresh_insiders_uk(since_days=args.since_days, max_pages=args.max_pages,
+                                      pause=args.pause if args.pause is not None else 0.3)
     elif args.backfill:
         y, q = args.backfill.lower().split("q")
         summary = backfill_dera(int(y), int(q))
     else:
-        summary = refresh_insiders(limit=args.limit, pause=args.pause)
+        summary = refresh_insiders(limit=args.limit,
+                                   pause=args.pause if args.pause is not None else 0.7)
     print(json.dumps(summary, indent=2))

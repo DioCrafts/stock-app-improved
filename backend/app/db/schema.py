@@ -105,8 +105,9 @@ CREATE TABLE IF NOT EXISTS insider_summary (
     symbol        TEXT PRIMARY KEY,
     buys_6m       INTEGER,
     sells_6m      INTEGER,
-    net_value_6m  REAL,              -- compras − ventas (mercado abierto), en $M, 180d
+    net_value_6m  REAL,              -- compras − ventas (mercado abierto), 180d, en M de `currency`
     last_txn_date TEXT,
+    currency      TEXT,              -- divisa de los importes (USD para US, GBP para UK)
     data          TEXT,              -- JSON: list[InsiderWindow]
     updated_at    TEXT
 );
@@ -128,6 +129,17 @@ def connect(db_path: str) -> sqlite3.Connection:
     return conn
 
 
+# ALTER idempotentes para columnas añadidas a tablas ya existentes (BDs creadas antes).
+_MIGRATIONS = (
+    "ALTER TABLE insider_summary ADD COLUMN currency TEXT",
+)
+
+
 def init_db(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    for stmt in _MIGRATIONS:
+        try:
+            conn.execute(stmt)
+        except sqlite3.OperationalError:
+            pass  # la columna ya existe (BD nueva) → no-op
     conn.commit()

@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     insider_max_filings: int = 60      # nº de Form 4 recientes a leer por empresa (incremental)
     insider_refresh_cron: str = "30 7 * * *"  # cron del refresco diario de insiders
 
+    # Insiders UK (FCA NSM, gratis y oficial). User-Agent identificable (servicio del regulador).
+    nsm_user_agent: str = "stock-app-improved insider-research (admin@example.com)"
+    insider_uk_since_days: int = 4     # ventana del barrido incremental NSM (PDMR por fecha)
+    insider_uk_max_pages: int = 40     # tope de páginas del barrido (cota de seguridad)
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

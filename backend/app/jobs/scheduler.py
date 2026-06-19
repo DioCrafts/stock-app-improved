@@ -15,7 +15,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from app.config import settings
-from app.jobs.refresh_insiders import refresh_insiders
+from app.jobs.refresh_insiders import refresh_insiders, refresh_insiders_uk
 from app.jobs.refresh_snapshots import refresh_snapshots
 from app.jobs.score_snapshots import score_universe
 from app.universe.refresh import refresh_universe
@@ -29,9 +29,16 @@ def scheduled_refresh() -> None:
 
 
 def scheduled_insider_refresh() -> None:
-    """Actividad de insiders (SEC, solo US). Cadencia propia: los Form 4 entran a
-    diario y la ingesta es lenta (una pasada por todo el universo US)."""
-    refresh_insiders()
+    """Actividad de insiders con cadencia propia: EE.UU. (SEC EDGAR) + UK (FCA NSM).
+    Cada mercado va en su propio try para que un fallo no impida el otro."""
+    try:
+        refresh_insiders()          # US — Form 4 vía EDGAR
+    except Exception as err:        # noqa: BLE001
+        print(f"[scheduler] insiders US error: {err}", flush=True)
+    try:
+        refresh_insiders_uk()       # UK — PDMR vía NSM
+    except Exception as err:        # noqa: BLE001
+        print(f"[scheduler] insiders UK error: {err}", flush=True)
 
 
 def build_scheduler() -> BlockingScheduler:

@@ -40,11 +40,12 @@ def test_summary_roundtrip():
     conn = _conn()
     row = {
         "symbol": "AAPL", "buys_6m": 3, "sells_6m": 1, "net_value_6m": 8.0,
-        "last_txn_date": "2024-05-02", "data": json.dumps([{"days": 180, "buys": 3}]),
+        "last_txn_date": "2024-05-02", "currency": "USD",
+        "data": json.dumps([{"days": 180, "buys": 3}]),
     }
     queries.upsert_insider_summary(conn, row)
     got = queries.get_insider_summary(conn, "AAPL")
-    assert got["buys_6m"] == 3 and got["net_value_6m"] == 8.0
+    assert got["buys_6m"] == 3 and got["net_value_6m"] == 8.0 and got["currency"] == "USD"
     assert json.loads(got["data"])[0]["days"] == 180
     assert queries.get_insider_summary(conn, "ZZZZ") is None
 
@@ -61,10 +62,10 @@ def test_screen_insider_filter_and_sort():
     _seed_snapshot(conn, "MSFT")
     queries.upsert_insider_summary(conn, {"symbol": "AAPL", "buys_6m": 4, "sells_6m": 0,
                                           "net_value_6m": 8.0, "last_txn_date": "2024-05-02",
-                                          "data": "[]"})
+                                          "currency": "USD", "data": "[]"})
     queries.upsert_insider_summary(conn, {"symbol": "MSFT", "buys_6m": 1, "sells_6m": 2,
                                           "net_value_6m": -3.0, "last_txn_date": "2024-05-01",
-                                          "data": "[]"})
+                                          "currency": "USD", "data": "[]"})
 
     # filtro: compra neta 6m ≥ 5 $M → solo AAPL (MSFT es negativo)
     total, blobs = queries.screen(conn, {"insiderNetMin": 5.0}, sort="insider")

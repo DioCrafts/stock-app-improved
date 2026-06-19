@@ -4,7 +4,8 @@
 #   docker compose exec backend python -m app.universe.refresh         (1) universo (~13.8k tickers)
 #   docker compose exec backend python -m app.jobs.refresh_snapshots   (2) ingesta
 #   docker compose exec backend python -m app.jobs.score_snapshots     (3) scoring
-#   docker compose exec backend python -m app.jobs.refresh_insiders    (4) insiders SEC (solo US)
+#   docker compose exec backend python -m app.jobs.refresh_insiders            (4) insiders US (SEC)
+#   docker compose exec backend python -m app.jobs.refresh_insiders --market uk (5) insiders UK (FCA NSM)
 # Después, el servicio 'scheduler' repite el pipeline a diario (REFRESH_CRON) y el de
 # insiders en su propia cadencia (INSIDER_REFRESH_CRON). El proceso
 # web NUNCA ejecuta el job pesado (ver H2): scheduler y backend comparten imagen y volumen.
@@ -36,8 +37,9 @@ services:
       REFRESH_CRON: "0 6 * * *"
       REFRESH_MAX_AGE_HOURS: "20"
       INSIDER_REFRESH_CRON: "30 7 * * *"
-      # La SEC exige User-Agent con email (fair access) — exporta SEC_USER_AGENT con el tuyo
+      # SEC (US) y FCA NSM (UK) piden User-Agent identificable — exporta los tuyos
       SEC_USER_AGENT: ${SEC_USER_AGENT:-stock-app-improved insider-research (admin@example.com)}
+      NSM_USER_AGENT: ${NSM_USER_AGENT:-stock-app-improved insider-research (admin@example.com)}
     volumes:
       - dbdata:/data
     mem_limit: 1536m                 # M10 — carga DataFrames de FinanceDatabase/yfinance + scoring

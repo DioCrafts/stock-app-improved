@@ -19,7 +19,7 @@ from app.services import insider_metrics
 _LIVE_MAX_FILINGS = 30  # fallback en caliente más ligero que el job batch (latencia)
 
 
-def build_summary_row(symbol: str, transactions: list[dict]) -> dict:
+def build_summary_row(symbol: str, transactions: list[dict], currency: str = "USD") -> dict:
     """Calcula la fila de `insider_summary` (agregados 6m + JSON de ventanas) para el job."""
     windows = insider_metrics.summarize(transactions)
     by_days = {w.days: w for w in windows}
@@ -31,6 +31,7 @@ def build_summary_row(symbol: str, transactions: list[dict]) -> dict:
         "sells_6m": w6.sells if w6 else 0,
         "net_value_6m": w6.netValue if w6 else None,
         "last_txn_date": last,
+        "currency": currency,
         "data": json.dumps([w.model_dump() for w in windows]),
     }
 
@@ -47,7 +48,7 @@ def get_insider_summary(ticker: str, tx_limit: int = 80) -> InsiderSummary:
     if stored:
         windows = [InsiderWindow.model_validate(w) for w in json.loads(stored.get("data") or "[]")]
         return InsiderSummary(
-            ticker=symbol, currency="USD", updated=stored.get("updated_at"),
+            ticker=symbol, currency=stored.get("currency") or "USD", updated=stored.get("updated_at"),
             windows=windows, transactions=insider_metrics.to_models(rows),
         )
 
